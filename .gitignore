@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.log
+.DS_Store
+Thumbs.db
+
+# 可重新產生的測試截圖、暫存與快取
+/screenshots/
+/shots/
+/tmp/
+/temp/
+/test-results/
+*.tmp
+*.bak
