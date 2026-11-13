@@ -121,6 +121,7 @@ if (!skipFlow) {
   await settle(page, 300);
   if (!(await page.locator('.countdown:not([hidden]) .cd-num').count())) note('開局沒有顯示倒數遮罩');
   if (!/^[123]$/.test((await page.locator('.cd-num').textContent()).trim())) note('倒數遮罩沒有顯示 3、2、1');
+  if (!(await page.locator('.countdown .cd-tip').isVisible())) note('倒數遮罩裡沒有操作提示');
   await audit(page, 'flow-countdown');
   {
     const box0 = await page.locator('.stage').boundingBox();
@@ -148,6 +149,27 @@ if (!skipFlow) {
   const after = await page.evaluate(() => window.__game.session.moves);
   if (after <= before) note('點擊盤面沒有轉動任何水管');
   await page.keyboard.press('z');
+  // 視角：沒放大時拖曳是轉視角；放大後拖曳改成平移；視角復位會全部還原
+  {
+    const drag = async () => {
+      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width * 0.5 + 60, box.y + box.height * 0.5 + 10, { steps: 4 });
+      await page.mouse.up();
+      return page.evaluate(() => ({ ...window.__game.scene.view }));
+    };
+    const movesBefore = await page.evaluate(() => window.__game.session.moves);
+    const a = await drag();
+    if (a.az === 0 || a.panX !== 0) note('沒放大時拖曳應該轉視角：' + JSON.stringify(a));
+    await page.locator('.zoom .icon-btn').nth(2).click();
+    await page.locator('.zoom .icon-btn').nth(0).click();
+    const b2 = await drag();
+    if (b2.az !== 0 || b2.panX === 0) note('放大後拖曳應該平移：' + JSON.stringify(b2));
+    await page.locator('.zoom .icon-btn').nth(2).click();
+    const c = await page.evaluate(() => ({ ...window.__game.scene.view }));
+    if (c.zoom !== 1 || c.panX !== 0 || c.az !== 0) note('視角復位沒有還原：' + JSON.stringify(c));
+    if ((await page.evaluate(() => window.__game.session.moves)) !== movesBefore) note('拖曳視角時誤轉了水管');
+  }
   // 鍵盤：方向鍵＋空白鍵
   await page.keyboard.press('ArrowRight');
   await page.keyboard.press('ArrowDown');

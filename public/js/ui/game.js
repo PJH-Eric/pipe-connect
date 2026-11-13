@@ -53,15 +53,16 @@ export function gameScreen(params, ctx) {
   const bar = h('div', { class: 'bar' }, btnUndo, btnHint, btnRestart);
 
   const stageHost = h('div', { class: 'stage-host' });
-  const tip = h('div', { class: 'stage-tip' });
+  const tip = h('div', { class: 'cd-tip' });
   const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
   const cdNum = h('b', { class: 'cd-num' });
-  const cdEl = h('div', { class: 'countdown', role: 'status', 'aria-live': 'assertive', hidden: true }, cdNum);
+  // 操作提示放在倒數遮罩裡：等倒數時順便看，倒數完就不會蓋到盤面
+  const cdEl = h('div', { class: 'countdown', role: 'status', 'aria-live': 'assertive', hidden: true }, cdNum, tip);
   const btnZoomIn = IconButton({ ico: 'plus', label: '', onClick: () => scene.zoomBy(1.3) });
   const btnZoomOut = IconButton({ ico: 'minus', label: '', onClick: () => scene.zoomBy(1 / 1.3) });
   const btnView = IconButton({ ico: 'view', label: '', onClick: () => scene.resetView() });
   const zoom = h('div', { class: 'zoom' }, btnZoomIn, btnZoomOut, btnView);
-  const stage = h('div', { class: 'stage', tabindex: '0', role: 'application' }, stageHost, tip, zoom, cdEl, live);
+  const stage = h('div', { class: 'stage', tabindex: '0', role: 'application' }, stageHost, zoom, cdEl, live);
   const el = h('div', { class: 'game' }, h('div', { class: 'game-side' }, hud, bar), stage);
 
   /* ---------- 文字（切換語言時重刷） ---------- */
@@ -109,7 +110,6 @@ export function gameScreen(params, ctx) {
     btnHint.querySelector('.btn-badge').textContent = session.hintsLeft === Infinity ? '∞' : String(session.hintsLeft);
     elWarn.hidden = !f.mixed;
     elWarn.textContent = f.mixed ? t('game.mixed') : '';
-    tip.hidden = cd.active || session.moves > 0 || session.hintsUsed > 0;
   }
 
   /* ---------- 開局倒數 ---------- */

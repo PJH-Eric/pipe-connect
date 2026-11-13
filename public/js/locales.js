@@ -69,7 +69,7 @@ const zhHant = {
   'help.stars': '星星怎麼算',
   'help.stars.body': '每局開始先倒數 3、2、1，喊「開始！」才計時。過關就有 1 顆星；步數不超過標準步數的 1.6 倍得 2 顆；步數不超過 1.2 倍、在目標時間內完成而且沒用提示得 3 顆。復原不會退回步數。幼幼難度過關一律 3 顆星。',
   'help.controls': '操作方式',
-  'help.controls.body': '觸控：點水管旋轉、單指拖曳轉視角、兩指縮放與平移。滑鼠：左鍵點擊旋轉、拖曳轉視角、滾輪縮放、右鍵拖曳平移。鍵盤：方向鍵移動、空白鍵旋轉、Z 復原、H 提示、＋－縮放、0 視角復位、Esc 暫停。',
+  'help.controls.body': '觸控：點水管旋轉、單指拖曳轉視角、兩指縮放；放大後單指拖曳改為平移。滑鼠：左鍵點擊旋轉、拖曳轉視角、滾輪縮放、右鍵拖曳平移。鍵盤：方向鍵移動、空白鍵旋轉、Z 復原、H 提示、＋－縮放、0 視角復位、Esc 暫停。',
 
   'stats.clears': '過關次數',
   'stats.taps': '轉了幾下',
@@ -261,7 +261,7 @@ const zhHans = {
   'help.stars': '星星怎么算',
   'help.stars.body': '每局开始先倒数 3、2、1，喊「开始！」才计时。过关就有 1 颗星；步数不超过标准步数的 1.6 倍得 2 颗；步数不超过 1.2 倍、在目标时间内完成而且没用提示得 3 颗。撤销不会退回步数。幼幼难度过关一律 3 颗星。',
   'help.controls': '操作方式',
-  'help.controls.body': '触控：点水管旋转、单指拖动转视角、两指缩放与平移。鼠标：左键点击旋转、拖动转视角、滚轮缩放、右键拖动平移。键盘：方向键移动、空格键旋转、Z 撤销、H 提示、＋－缩放、0 视角复位、Esc 暂停。',
+  'help.controls.body': '触控：点水管旋转、单指拖动转视角、两指缩放；放大后单指拖动改为平移。鼠标：左键点击旋转、拖动转视角、滚轮缩放、右键拖动平移。键盘：方向键移动、空格键旋转、Z 撤销、H 提示、＋－缩放、0 视角复位、Esc 暂停。',
 
   'stats.clears': '过关次数',
   'stats.taps': '转了几下',
@@ -453,7 +453,7 @@ const en = {
   'help.stars': 'Stars',
   'help.stars.body': 'Each board opens with a 3-2-1 countdown and the clock starts on "Go!". 1 star for clearing. 2 stars within 1.6× the par moves. 3 stars within 1.2× par, inside the target time, with no hints. Undo does not give moves back. Tiny always awards 3 stars.',
   'help.controls': 'Controls',
-  'help.controls.body': 'Touch: tap to turn, drag to orbit, two fingers to zoom and pan. Mouse: click to turn, drag to orbit, wheel to zoom, right-drag to pan. Keyboard: arrows move, Space turns, Z undo, H hint, + − zoom, 0 resets the view, Esc pauses.',
+  'help.controls.body': 'Touch: tap to turn, drag to orbit, pinch to zoom; once zoomed in, drag pans instead. Mouse: click to turn, drag to orbit, wheel to zoom, right-drag to pan. Keyboard: arrows move, Space turns, Z undo, H hint, + − zoom, 0 resets the view, Esc pauses.',
 
   'stats.clears': 'Boards cleared',
   'stats.taps': 'Turns made',

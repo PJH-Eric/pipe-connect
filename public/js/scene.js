@@ -494,7 +494,8 @@ export class PipeScene {
         this._clampView();
         this._placeCamera();
       } else if (this.pointers.size === 1 && p.moved) {
-        if (p.pan) this._pan(dx, dy);
+        // 放大之後單指拖曳改成平移（手機上大盤面才好找位置）；沒放大時拖曳是轉視角
+        if (p.pan || this.view.zoom > 1.02) this._pan(dx, dy);
         else {
           this.view.az -= dx * 0.006;
           this.view.polar -= dy * 0.006;

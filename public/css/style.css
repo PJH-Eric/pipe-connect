@@ -269,14 +269,15 @@ button { font: inherit; color: inherit; }
 .stage:focus-visible { outline-offset: -4px; border-radius: 12px; }
 .stage-host { position: absolute; inset: 0; }
 .stage-canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
-.stage-tip { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); width: max-content; max-width: min(92%, 520px); padding: 8px 14px; border-radius: 14px; background: rgba(8, 24, 40, .86); border: 2px solid var(--accent); font-weight: 700; font-size: 14px; line-height: 1.5; text-align: center; pointer-events: none; }
 /* 開局 3、2、1 遮罩：蓋住整個盤面，倒數完才能操作 */
-.countdown { position: absolute; inset: 0; z-index: 5; display: flex; align-items: center; justify-content: center; background: rgba(6, 18, 32, .5); touch-action: none; }
+.countdown { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(10px, 3vmin, 22px); padding: 10px; background: rgba(6, 18, 32, .5); touch-action: none; }
 .countdown .cd-num {
   display: flex; align-items: center; justify-content: center; min-width: clamp(120px, 30vmin, 220px); height: clamp(120px, 30vmin, 220px); padding: 0 .3em;
   border-radius: 999px; background: var(--panel); border: 5px solid var(--accent); box-shadow: 0 8px 0 var(--accent-deep), 0 0 0 10px rgba(55, 214, 232, .14);
   font-size: clamp(4rem, 18vmin, 8rem); font-weight: 900; line-height: 1; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
+.cd-tip { max-width: min(100%, 520px); padding: 8px 16px; border-radius: 14px; background: rgba(8, 24, 40, .9); border: 2px solid var(--accent); font-weight: 700; font-size: clamp(14px, 2.2vmin, 17px); line-height: 1.5; text-align: center; }
+.countdown.go .cd-tip { display: none; }
 .countdown.go { pointer-events: none; background: transparent; transition: background .3s; }
 .countdown.go .cd-num { background: var(--gold); border-color: #fff3c4; box-shadow: 0 8px 0 #9a7a17; color: #3b2c00; font-size: clamp(2.2rem, 9vmin, 4rem); min-width: clamp(160px, 40vmin, 300px); }
 .countdown .cd-num.pop { animation: cd-pop .45s cubic-bezier(.2, 1.6, .4, 1); }
