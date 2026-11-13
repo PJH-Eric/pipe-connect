@@ -40,24 +40,25 @@ export function generate(spec, seed) {
     sources.push(best);
   }
 
-  // 2. 長出水管樹。frontier 存「已在樹上的格子 → 還沒被佔的鄰格」
-  const frontier = [];
+  // 2. 長出水管樹。每個顏色各有一份 frontier，存「已在樹上的格子 → 還沒被佔的鄰格」
+  const frontiers = [];
+  const size = new Int32Array(colors + 1).fill(1);
+  for (let c = 0; c <= colors; c++) frontiers.push([]);
   const pushEdges = (i) => {
     for (let d = 0; d < 4; d++) {
       const j = neighbor(board, i, d);
-      if (j >= 0 && j !== i && !owner[j]) frontier.push({ i, d, j });
+      if (j >= 0 && j !== i && !owner[j]) frontiers[owner[i]].push({ i, d, j });
     }
   };
   const degree = (i) => {
     const m = board.cells[i].mask;
     return (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1) + ((m >> 3) & 1);
   };
-  const take = (k) => {
-    const e = frontier[k];
-    frontier.splice(k, 1);
+  const take = (e) => {
     board.cells[e.i].mask |= DIRS[e.d].bit;
     board.cells[e.j].mask |= DIRS[e.d].opp;
     owner[e.j] = owner[e.i];
+    size[owner[e.i]]++;
     pushEdges(e.j);
   };
   // 每個水源先各接出一節，避免被別的顏色包圍成孤島
@@ -68,27 +69,34 @@ export function generate(spec, seed) {
       if (j >= 0 && j !== s && !owner[j]) opts.push({ i: s, d, j });
     }
     if (!opts.length) return generate(spec, String(seed) + '~');
-    frontier.push(rng.pick(opts));
-    take(frontier.length - 1);
+    take(rng.pick(opts));
   }
   sources.forEach(pushEdges);
-  while (frontier.length) {
+  for (;;) {
+    // 清掉已經被佔走的邊，再決定這一步讓哪個顏色長
+    const alive = [];
+    for (let c = 1; c <= colors; c++) {
+      const f = frontiers[c];
+      for (let k = f.length - 1; k >= 0; k--) if (owner[f[k].j]) f.splice(k, 1);
+      if (f.length) alive.push(c);
+    }
+    if (!alive.length) break;
+    // 多半讓目前最小的那棵樹長，各顏色的範圍才不會差太多
+    let c = alive[0];
+    if (rng.chance(0.8)) {
+      for (const x of alive) if (size[x] < size[c]) c = x;
+    } else c = rng.pick(alive);
+    const f = frontiers[c];
     // 偏好最近加入的邊會長出蜿蜒的長管，偶爾隨機挑則長出分岔
-    let k = rng.chance(0.55) ? frontier.length - 1 - rng.int(Math.min(3, frontier.length)) : rng.int(frontier.length);
-    let e = frontier[k];
-    if (owner[e.j]) {
-      frontier.splice(k, 1);
-      continue;
-    }
+    let k = rng.chance(0.55) ? f.length - 1 - rng.int(Math.min(3, f.length)) : rng.int(f.length);
     // 十字太多會讓題目變無聊，已經是三通的格子大多不再分岔
-    if (degree(e.i) >= 3 && frontier.length > 1 && rng.chance(0.85)) {
-      const alt = frontier.findIndex((f) => !owner[f.j] && degree(f.i) < 3);
-      if (alt >= 0) {
-        k = alt;
-        e = frontier[k];
-      }
+    if (degree(f[k].i) >= 3 && f.length > 1 && rng.chance(0.85)) {
+      const alt = f.findIndex((e) => degree(e.i) < 3);
+      if (alt >= 0) k = alt;
     }
-    take(k);
+    const e = f[k];
+    f.splice(k, 1);
+    take(e);
   }
 
   // 3. 鎖住一部分水管當線索（十字本來就不用轉，不算在內）

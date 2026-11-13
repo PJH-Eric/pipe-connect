@@ -178,6 +178,25 @@ await test('闖關 500 關：全部有解、開局未過關、水源數正確、
   }
 });
 
+await test('產生器：多色盤面各顏色的範圍不會差太多', () => {
+  let worst = 1, sum = 0, count = 0;
+  for (const diff of ['normal', 'hard', 'myth']) {
+    for (let i = 0; i < LEVELS_PER_DIFF; i++) {
+      const b = solvedCopy(campaignBoard(diff, i));
+      if (b.colors < 2) continue;
+      const f = flow(b);
+      const per = new Array(b.colors + 1).fill(0);
+      f.color.forEach((c) => per[c]++);
+      const share = Math.min(...per.slice(1)) / (b.cells.length / b.colors);
+      worst = Math.min(worst, share);
+      sum += share;
+      count++;
+    }
+  }
+  assert.ok(sum / count > 0.6, '平均最小佔比太低：' + (sum / count).toFixed(2));
+  assert.ok(worst > 0.12, '有顏色幾乎沒有範圍：' + worst.toFixed(2));
+});
+
 await test('難度規格：盤面由小到大、進階機關只在較高難度', () => {
   assert.equal(levelSpec('tot', 0).w, 3);
   assert.equal(levelSpec('tot', 99).colors, 1);
