@@ -15,10 +15,15 @@ export class Session {
     this.hintsLeft = HINTS[info.diff];
     this.undoStack = [];
     this.elapsedMs = 0;
-    this.runningSince = -1; // 第一次轉動才開始計時
+    this.runningSince = -1; // 呼叫 start()（開局倒數結束）或第一次轉動才開始計時
     this.started = false;
     this.done = false;
     this.flow = flow(board);
+  }
+
+  /** 開局倒數結束，開始計時（重複呼叫沒有作用） */
+  start(now = Date.now()) {
+    if (!this.done) this._begin(now);
   }
 
   /** 點一節水管。回傳 { ok, reason?, solved } */

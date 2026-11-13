@@ -117,6 +117,29 @@ if (!skipFlow) {
   if (!(await page.locator('.toast.show').count())) note('點鎖住的關卡沒有提示');
   await click(page, '.level');
   await page.waitForFunction(() => window.__game?.session);
+  // 開局 3、2、1 遮罩：看得到、擋住操作、倒數完才計時；倒數中暫停再繼續會重數
+  await settle(page, 300);
+  if (!(await page.locator('.countdown:not([hidden]) .cd-num').count())) note('開局沒有顯示倒數遮罩');
+  if (!/^[123]$/.test((await page.locator('.cd-num').textContent()).trim())) note('倒數遮罩沒有顯示 3、2、1');
+  await audit(page, 'flow-countdown');
+  {
+    const box0 = await page.locator('.stage').boundingBox();
+    await page.mouse.click(box0.x + box0.width / 2, box0.y + box0.height / 2);
+    await page.keyboard.press('h');
+    const st = await page.evaluate(() => ({ moves: window.__game.session.moves, hints: window.__game.session.hintsUsed, started: window.__game.session.started, undo: document.querySelector('.bar .btn').disabled }));
+    if (st.moves || st.hints || st.started || !st.undo) note('倒數期間仍可操作或已開始計時：' + JSON.stringify(st));
+  }
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal-menu');
+  if (await page.locator('.countdown:not([hidden])').count()) note('暫停時倒數遮罩沒有收起');
+  await settle(page, 3300);
+  if (await page.evaluate(() => window.__game.session.started)) note('倒數中暫停後，時間卻開始跑了');
+  await page.keyboard.press('Escape');
+  if (!(await page.evaluate(() => window.__game.counting))) note('倒數中暫停再繼續，沒有重新倒數');
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  if (!(await page.locator('.countdown.go').count())) note('倒數結束沒有顯示「開始！」');
+  await settle(page, 900);
+  if (await page.locator('.countdown:not([hidden])').count()) note('「開始！」之後遮罩沒有消失');
   await settle(page, 500);
   // 真的用滑鼠點盤面中央，確認點擊能換算到格子並旋轉
   const before = await page.evaluate(() => window.__game.session.moves);
@@ -156,7 +179,8 @@ if (!skipFlow) {
   if (await page.locator('.result-share-dialog-layer').count()) note('Esc 沒有關閉分享視窗');
   if (!(await page.locator('.modal-result').count())) note('關閉分享視窗時結算也被關掉了');
   await click(page, '.modal-result .btn-primary');
-  await page.waitForFunction(() => window.__game?.session && !window.__game.session.done);
+  await page.waitForFunction(() => window.__game?.session && !window.__game.session.done && window.__game.counting);
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
   if (!(await page.locator('#top-title').textContent()).includes('2')) note('下一關沒有進到第 2 關');
   // 暫停 → 繼續 → 再暫停 → 回選關
   await page.keyboard.press('Escape');
@@ -223,7 +247,10 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await audit(page, tag('levels'));
     await page.locator('.level').nth(1).click();
     await page.waitForFunction(() => window.__game?.session);
-    await settle(page, 600);
+    await settle(page, 350);
+    await audit(page, tag('countdown'));
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    await settle(page, 900);
     await audit(page, tag('game'));
     await page.goBack();
     await page.goBack();
@@ -233,6 +260,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
     // 最大的盤面：神話、邊緣相通、多色
     await page.locator('.diff-card').nth(4).click();
     await page.waitForFunction(() => window.__game?.session);
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
     await settle(page, 600);
     await audit(page, tag('game-myth'));
     await page.evaluate(() => {

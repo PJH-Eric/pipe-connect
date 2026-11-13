@@ -23,6 +23,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH 
 const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
 await page.addInitScript(() => {
   window.__PIPE_TEST__ = true;
+  window.__PIPE_SKIP_COUNTDOWN__ = true;
   localStorage.setItem('pipe-connect.v1', JSON.stringify({ settings: { music: false, sfx: false } }));
 });
 await page.goto(`http://localhost:${server.address().port}/`);

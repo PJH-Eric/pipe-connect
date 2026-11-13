@@ -318,6 +318,19 @@ await test('對局：幼幼班提示不限次數，一路提示到過關且一�
   assert.equal(ses.result().stars, 3);
 });
 
+await test('對局：開局倒數結束呼叫 start() 才開始計時，之後第一次轉動不會重設起點', () => {
+  const ses = new Session(campaignBoard('easy', 2), { mode: 'campaign', diff: 'easy', index: 2 });
+  assert.equal(ses.started, false);
+  ses.start(1000);
+  assert.equal(ses.started, true);
+  assert.equal(ses.seconds(4000), 3);
+  const k = ses.board.cells.findIndex((c) => !c.locked && period(c.mask) > 1);
+  ses.tap(k, 5000);
+  assert.equal(ses.seconds(6000), 5);
+  ses.start(9000);
+  assert.equal(ses.seconds(9000), 8, '重複 start 沒有作用');
+});
+
 await test('對局：暫停期間不計時', () => {
   const ses = new Session(campaignBoard('easy', 1), { mode: 'campaign', diff: 'easy', index: 1 });
   const k = ses.board.cells.findIndex((c) => !c.locked && period(c.mask) > 1);

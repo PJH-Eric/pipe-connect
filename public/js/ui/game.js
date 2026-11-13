@@ -28,6 +28,9 @@ export function gameScreen(params, ctx) {
   let lastWet = 0;
   let winTimer = 0;
   let left = false;
+  // 開局 3、2、1 倒數：倒數期間盤面蓋著遮罩不能操作，喊「開始！」才開始計時
+  const COUNTDOWN_MS = 3000;
+  const cd = { tick: 0, goT: 0, active: false, resumeAfterPause: false };
   const analyticsKey = [params.mode, params.diff, params.index ?? params.dateKey ?? params.seed, Date.now()].join(':');
 
   /* ---------- 版面 ---------- */
@@ -52,11 +55,13 @@ export function gameScreen(params, ctx) {
   const stageHost = h('div', { class: 'stage-host' });
   const tip = h('div', { class: 'stage-tip' });
   const live = h('div', { class: 'sr-only', 'aria-live': 'polite' });
+  const cdNum = h('b', { class: 'cd-num' });
+  const cdEl = h('div', { class: 'countdown', role: 'status', 'aria-live': 'assertive', hidden: true }, cdNum);
   const btnZoomIn = IconButton({ ico: 'plus', label: '', onClick: () => scene.zoomBy(1.3) });
   const btnZoomOut = IconButton({ ico: 'minus', label: '', onClick: () => scene.zoomBy(1 / 1.3) });
   const btnView = IconButton({ ico: 'view', label: '', onClick: () => scene.resetView() });
   const zoom = h('div', { class: 'zoom' }, btnZoomIn, btnZoomOut, btnView);
-  const stage = h('div', { class: 'stage', tabindex: '0', role: 'application' }, stageHost, tip, zoom, live);
+  const stage = h('div', { class: 'stage', tabindex: '0', role: 'application' }, stageHost, tip, zoom, cdEl, live);
   const el = h('div', { class: 'game' }, h('div', { class: 'game-side' }, hud, bar), stage);
 
   /* ---------- 文字（切換語言時重刷） ---------- */
@@ -98,12 +103,73 @@ export function gameScreen(params, ctx) {
     chipMoves.value.textContent = params.diff === 'tot' ? String(session.moves) : `${session.moves} / ${session.par}`;
     chipTime.value.textContent = fmtTime(session.seconds());
     chipWet.value.textContent = `${f.wet} / ${session.board.cells.length}`;
-    btnUndo.disabled = !session.canUndo;
-    btnHint.disabled = !session.canHint;
+    btnUndo.disabled = cd.active || !session.canUndo;
+    btnHint.disabled = cd.active || !session.canHint;
+    btnRestart.disabled = cd.active;
     btnHint.querySelector('.btn-badge').textContent = session.hintsLeft === Infinity ? '∞' : String(session.hintsLeft);
     elWarn.hidden = !f.mixed;
     elWarn.textContent = f.mixed ? t('game.mixed') : '';
-    tip.hidden = session.started;
+    tip.hidden = cd.active || session.moves > 0 || session.hintsUsed > 0;
+  }
+
+  /* ---------- 開局倒數 ---------- */
+  function popNum(text) {
+    cdNum.textContent = text;
+    cdNum.classList.remove('pop');
+    void cdNum.offsetWidth;
+    cdNum.classList.add('pop');
+  }
+
+  function stopCountdown() {
+    clearInterval(cd.tick);
+    clearTimeout(cd.goT);
+    cd.tick = cd.goT = 0;
+    cd.active = false;
+    cdEl.hidden = true;
+    cdEl.classList.remove('go');
+  }
+
+  function startCountdown() {
+    stopCountdown();
+    if (window.__PIPE_SKIP_COUNTDOWN__) {
+      session.start();
+      refreshHud();
+      return;
+    }
+    const until = Date.now() + COUNTDOWN_MS;
+    let last = 0;
+    cd.active = true;
+    cdEl.hidden = false;
+    const step = () => {
+      const remain = until - Date.now();
+      if (remain <= 0) {
+        clearInterval(cd.tick);
+        cd.tick = 0;
+        cd.active = false;
+        cdEl.classList.add('go');
+        cdEl.setAttribute('aria-label', t('cd.go'));
+        popNum(t('cd.go'));
+        sfx('go');
+        session.start();
+        refreshHud();
+        cd.goT = setTimeout(() => {
+          cd.goT = 0;
+          cdEl.hidden = true;
+          cdEl.classList.remove('go');
+        }, 650);
+        return;
+      }
+      const n = Math.ceil(remain / 1000);
+      if (n !== last) {
+        last = n;
+        cdEl.setAttribute('aria-label', t('cd.aria', { n }));
+        popNum(String(n));
+        sfx('count');
+      }
+    };
+    step();
+    cd.tick = setInterval(step, 40);
+    refreshHud();
   }
 
   /* ---------- 開局／重來 ---------- */
@@ -117,6 +183,7 @@ export function gameScreen(params, ctx) {
     refreshTexts();
     window.GameAnalytics?.reset();
     window.GameAnalytics?.start({ mode: 'solo', variant: params.mode, difficulty: params.diff });
+    startCountdown();
   }
 
   function restart() {
@@ -135,7 +202,7 @@ export function gameScreen(params, ctx) {
   }
 
   function doTap(i) {
-    if (!session || session.done || hasModal()) return;
+    if (!session || session.done || cd.active || hasModal()) return;
     const r = session.tap(i);
     if (!r.ok) {
       if (r.reason === 'locked') {
@@ -156,6 +223,7 @@ export function gameScreen(params, ctx) {
   }
 
   function doUndo() {
+    if (cd.active) return;
     const i = session.undo();
     if (i < 0) return;
     scene.turn(i, -1);
@@ -164,6 +232,7 @@ export function gameScreen(params, ctx) {
   }
 
   function doHint() {
+    if (cd.active) return;
     const r = session.hint();
     if (r === -1) return;
     scene.setRot(r.i, 0);
@@ -191,6 +260,7 @@ export function gameScreen(params, ctx) {
 
   function onKey(ev) {
     if (hasModal() || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (cd.active && ev.key !== 'Escape') return;
     const tag = ev.target?.closest?.('button,a,[role="slider"],[role="switch"]');
     const b = session.board;
     const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
@@ -219,6 +289,9 @@ export function gameScreen(params, ctx) {
   /* ---------- 暫停 ---------- */
   function openPause() {
     if (hasModal() || session.done) return;
+    // 倒數中暫停：先停掉倒數，繼續時從 3 重新數
+    cd.resumeAfterPause = cd.active;
+    stopCountdown();
     session.pause();
     sfx('click');
     const close = (fn) => () => {
@@ -237,13 +310,16 @@ export function gameScreen(params, ctx) {
       ),
       onClose: () => {
         pauseModal = null;
-        if (!left) session.resume();
+        if (left) return;
+        if (cd.resumeAfterPause && !session.started) startCountdown();
+        else session.resume();
+        cd.resumeAfterPause = false;
       },
     });
   }
 
   function onVisibility() {
-    if (document.hidden && session.started && !session.done && !hasModal()) openPause();
+    if (document.hidden && (session.started || cd.active) && !session.done && !hasModal()) openPause();
   }
 
   /* ---------- 過關與結算 ---------- */
@@ -331,7 +407,7 @@ export function gameScreen(params, ctx) {
       scene.setReducedMotion(store().settings.reduceMotion);
       begin();
       scene.start();
-      if (window.__PIPE_TEST__) window.__game = { get session() { return session; }, scene, doTap, doHint, doUndo };
+      if (window.__PIPE_TEST__) window.__game = { get session() { return session; }, get counting() { return cd.active; }, scene, doTap, doHint, doUndo };
     },
     onLang: refreshTexts,
     onSettings() {
@@ -341,6 +417,7 @@ export function gameScreen(params, ctx) {
       left = true;
       clearInterval(tick);
       clearTimeout(winTimer);
+      stopCountdown();
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);
       if (session && session.started && !session.done) window.GameAnalytics?.end({ result: 'dnf' });

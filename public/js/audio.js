@@ -71,6 +71,15 @@ const SFX = {
     tone(880, t, 0.12, { gain: 0.3 });
     tone(1320, t + 0.09, 0.2, { gain: 0.3 });
   },
+  // 開局倒數 3、2、1
+  count(t) {
+    tone(660, t, 0.13, { type: 'triangle', gain: 0.4 });
+  },
+  // 開始！
+  go(t) {
+    tone(880, t, 0.14, { type: 'triangle', gain: 0.42 });
+    tone(1320, t + 0.1, 0.3, { type: 'triangle', gain: 0.42 });
+  },
   click(t) {
     tone(660, t, 0.05, { type: 'triangle', gain: 0.25 });
   },
