@@ -280,7 +280,9 @@ export function gameScreen(params, ctx) {
     actions.push(Button({ ico: 'home', label: t('result.home'), size: 'lg', onClick: go(() => ctx.home()) }));
 
     const stat = (ico, name, value, note) => h('div', { class: 'res-stat' }, icon(ico), h('span', { class: 'res-name' }, name), h('b', null, value), note && h('span', { class: 'res-note' }, note));
-    const body = h('div', { class: 'res' },
+    // data-result-share：共用的 result-share.js 會在這張結算卡底部加上「分享結果」，把它做成分享圖片
+    const body = h('div', { class: 'res', 'data-result-share': '' },
+      h('h2', { class: 'res-headline', id: 'res-headline' }, t(params.diff === 'tot' ? 'result.titleTot' : 'result.title')),
       Stars(r.stars, { size: 'stars-xl' }),
       h('p', { class: 'res-level' }, title()),
       h('div', { class: 'res-stats' },
@@ -300,6 +302,7 @@ export function gameScreen(params, ctx) {
     resultModal = openModal({
       title: t(params.diff === 'tot' ? 'result.titleTot' : 'result.title'),
       cls: 'modal-result',
+      labelledBy: 'res-headline',
       closable: false,
       body,
       actions,

@@ -63,7 +63,7 @@ async function audit(page, tag) {
       const cs = getComputedStyle(el);
       return cs.visibility !== 'hidden' && cs.display !== 'none';
     };
-    const modal = document.querySelector('#overlays .modal-backdrop:last-of-type');
+    const modal = document.querySelector('.result-share-dialog-layer:not([hidden])') || document.querySelector('#overlays .modal-backdrop:last-of-type');
     const scope = modal || document.getElementById('app');
     for (const el of scope.querySelectorAll('button, a, [role="slider"], [role="switch"]')) {
       if (!visible(el)) continue;
@@ -141,6 +141,20 @@ if (!skipFlow) {
   const labels = await page.locator('.modal-result .modal-foot .btn').allTextContents();
   if (labels.length !== 4) note('闖關結算應有四顆按鈕，實際：' + labels.join('/'));
   if (!(await page.evaluate(() => !!document.querySelector('.stage-canvas')))) note('結算時盤面被卸載了');
+  // 分享結果：做出圖片、可下載、Esc 只關分享視窗不關結算
+  await click(page, '.result-share-trigger');
+  await page.waitForSelector('.result-share-image:not([hidden])', { timeout: 40000 }).catch(() => note('分享圖片沒有產生'));
+  await audit(page, 'flow-share');
+  const share = await page.evaluate(async () => {
+    const img = document.querySelector('.result-share-image');
+    const bmp = img?.src ? await createImageBitmap(await (await fetch(img.src)).blob()) : null;
+    return { w: bmp?.width || 0, h: bmp?.height || 0, download: !document.querySelector('.result-share-image-download')?.disabled };
+  });
+  if (share.w !== 1080 || share.h < 600) note('分享圖片尺寸不對：' + JSON.stringify(share));
+  if (!share.download) note('分享圖片做好後下載鈕仍是停用');
+  await page.keyboard.press('Escape');
+  if (await page.locator('.result-share-dialog-layer').count()) note('Esc 沒有關閉分享視窗');
+  if (!(await page.locator('.modal-result').count())) note('關閉分享視窗時結算也被關掉了');
   await click(page, '.modal-result .btn-primary');
   await page.waitForFunction(() => window.__game?.session && !window.__game.session.done);
   if (!(await page.locator('#top-title').textContent()).includes('2')) note('下一關沒有進到第 2 關');

@@ -22,6 +22,7 @@
 - 評星：過關 1 星；步數 ≤ 標準步數 ×1.6 得 2 星；步數 ≤ ×1.2、在目標時間（每格 4 秒）內且沒用提示得 3 星。幼幼一律 3 星。
 - 提示次數：幼幼不限、簡單 5、普通 3、困難 2、神話 1。提示會把一節水管轉正並鎖住。
 - 復原不會退回步數。
+- 結算卡有「分享結果」：把這張結算卡做成 1080 寬的 PNG，可直接分享或下載（與其他小遊戲共用 `result-share.js`）。
 
 | 難度 | 盤面 | 顏色 | 邊緣相通 |
 | --- | --- | --- | --- |
@@ -67,7 +68,8 @@ public/
   js/scene.js     Three.js 3D 盤面
   js/ui/          自繪元件（kit）、圖示、各畫面、遊戲畫面
   js/locales.js   繁中／簡中／English
-  js/vendor/      three.module.min.js（MIT）
+  js/result-share.js、js/locales/result-share.js   各遊戲共用的結算分享圖片元件（原樣沿用，不要在這裡改）
+  js/vendor/      three.module.min.js、html2canvas.min.js（皆 MIT）
 tests/verify.js   規則測試
 scripts/          SEO 注入、瀏覽器巡檢、分享圖產生
 ```
@@ -80,4 +82,5 @@ scripts/          SEO 注入、瀏覽器巡檢、分享圖產生
 ## 授權
 
 - Three.js：MIT License（`public/js/vendor/three.module.min.js`）。
+- html2canvas 1.4.1：MIT License（`public/js/vendor/html2canvas.min.js`），製作分享圖片時才載入。
 - 音效與背景音樂由程式即時合成，沒有外部音檔；圖示與美術為本專案自繪。
