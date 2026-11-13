@@ -43,7 +43,7 @@
 
 ```
 啟動遊戲.bat        # Windows 直接點兩下
-npm start           # 或手動啟動，開 http://localhost:3110
+npm start           # 或手動啟動，開 http://localhost:3230
 ```
 
 遊戲使用 ES 模組，不能直接用 `file://` 開 `public/index.html`。

@@ -50,7 +50,7 @@ exit /b 1
 :run
 type "%MSG%msg-starting.txt"
 rem wait for the server before opening the browser
-start "" /b cmd /c "ping -n 3 127.0.0.1 >nul & start "" http://localhost:3110"
+start "" /b cmd /c "ping -n 3 127.0.0.1 >nul & start "" http://localhost:3230"
 "%NODE_EXE%" server.js
 if not errorlevel 1 goto :done
 type "%MSG%msg-exited.txt"
