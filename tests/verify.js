@@ -11,10 +11,15 @@ import {
   taipeiDateKey, shiftDateKey, rateStars, starTimeLimit, HINTS,
 } from '../public/js/core/levels.js';
 
+import { Session } from '../public/js/core/session.js';
+import {
+  emptyProgress, normalizeProgress, recordResult, unlockedCount, isUnlocked, dailyStreak, dailyDoneCount, starTotal,
+} from '../public/js/core/progress.js';
+
 let passed = 0;
-function test(name, fn) {
+async function test(name, fn) {
   try {
-    fn();
+    await fn();
     passed++;
   } catch (e) {
     console.error('✗ ' + name);
@@ -28,7 +33,7 @@ const solvedCopy = (b) => {
 };
 const cell = (mask, extra = {}) => ({ mask, rot: 0, locked: false, src: 0, ...extra });
 
-test('亂數：同種子同結果、不同種子不同結果', () => {
+await test('亂數：同種子同結果、不同種子不同結果', () => {
   const a = makeRng('x'), b = makeRng('x'), c = makeRng('y');
   const sa = [a.next(), a.next(), a.next()], sb = [b.next(), b.next(), b.next()];
   assert.deepEqual(sa, sb);
@@ -36,7 +41,7 @@ test('亂數：同種子同結果、不同種子不同結果', () => {
   assert.equal(hashSeed('abc'), hashSeed('abc'));
 });
 
-test('旋轉：順時針 N→E→S→W', () => {
+await test('旋轉：順時針 N→E→S→W', () => {
   assert.equal(rotMask(N, 1), E);
   assert.equal(rotMask(N, 2), S);
   assert.equal(rotMask(N, 3), W);
@@ -46,7 +51,7 @@ test('旋轉：順時針 N→E→S→W', () => {
   for (let m = 1; m < 16; m++) assert.equal(rotMask(m, 4), m);
 });
 
-test('週期與種類', () => {
+await test('週期與種類', () => {
   assert.equal(period(15), 1);
   assert.equal(period(N | S), 2);
   assert.equal(period(E | W), 2);
@@ -59,7 +64,7 @@ test('週期與種類', () => {
   assert.equal(kind(15), 'cross');
 });
 
-test('鄰格：一般盤面出界為 -1、環繞盤面會接到對面', () => {
+await test('鄰格：一般盤面出界為 -1、環繞盤面會接到對面', () => {
   const b = { w: 3, h: 2, wrap: false, cells: new Array(6) };
   assert.equal(neighbor(b, 0, 0), -1);
   assert.equal(neighbor(b, 0, 3), -1);
@@ -71,7 +76,7 @@ test('鄰格：一般盤面出界為 -1、環繞盤面會接到對面', () => {
   assert.equal(neighbor(b, 5, 1), 3);
 });
 
-test('水流：兩格直線接通即過關，轉開就漏水', () => {
+await test('水流：兩格直線接通即過關，轉開就漏水', () => {
   const b = { w: 2, h: 1, wrap: false, cells: [cell(E, { src: 1 }), cell(W)] };
   let f = flow(b);
   assert.equal(f.solved, true);
@@ -84,7 +89,7 @@ test('水流：兩格直線接通即過關，轉開就漏水', () => {
   assert.deepEqual([...f.color], [1, 0]);
 });
 
-test('水流：沒有漏水但有一段沒接到水源，不算過關', () => {
+await test('水流：沒有漏水但有一段沒接到水源，不算過關', () => {
   // 上排水源→端點，下排兩個端點互接但沒有水
   const b = { w: 2, h: 2, wrap: false, cells: [cell(E, { src: 1 }), cell(W), cell(E), cell(W)] };
   const f = flow(b);
@@ -93,7 +98,7 @@ test('水流：沒有漏水但有一段沒接到水源，不算過關', () => {
   assert.equal(f.wet, 2);
 });
 
-test('水流：不同顏色混在一起不算過關', () => {
+await test('水流：不同顏色混在一起不算過關', () => {
   const b = { w: 3, h: 1, wrap: false, cells: [cell(E, { src: 1 }), cell(E | W), cell(W, { src: 2 })] };
   const f = flow(b);
   assert.equal(f.leaks.length, 0);
@@ -102,7 +107,7 @@ test('水流：不同顏色混在一起不算過關', () => {
   assert.deepEqual([...f.color], [-1, -1, -1]);
 });
 
-test('水流：環繞盤面的水管可以穿過邊界', () => {
+await test('水流：環繞盤面的水管可以穿過邊界', () => {
   const b = { w: 3, h: 1, wrap: true, cells: [cell(W, { src: 1 }), cell(E), cell(E | W)] };
   // 0 往西接到 2，2 往西接到 1（1 開口朝東）…排成 1→2→0 的環繞直線
   const f = flow(b);
@@ -111,7 +116,7 @@ test('水流：環繞盤面的水管可以穿過邊界', () => {
   assert.equal(flow(b).solved, false);
 });
 
-test('操作：鎖住與十字不能轉、復原會轉回去', () => {
+await test('操作：鎖住與十字不能轉、復原會轉回去', () => {
   const b = { w: 2, h: 1, wrap: false, cells: [cell(E, { src: 1, locked: true }), cell(15)] };
   assert.equal(canRotate(b, 0), false);
   assert.equal(canRotate(b, 1), false);
@@ -125,7 +130,7 @@ test('操作：鎖住與十字不能轉、復原會轉回去', () => {
   assert.equal(curMask(c.cells[0]), E);
 });
 
-test('提示：把水管轉正並鎖住，剩餘步數會減少', () => {
+await test('提示：把水管轉正並鎖住，剩餘步數會減少', () => {
   const b = generate({ w: 5, h: 5, colors: 1, wrap: false, lockRatio: 0 }, 'hint');
   const before = remainingTaps(b);
   const list = hintCandidates(b);
@@ -138,13 +143,13 @@ test('提示：把水管轉正並鎖住，剩餘步數會減少', () => {
   assert.ok(!hintCandidates(b).includes(list[0]));
 });
 
-test('產生器：同種子完全相同', () => {
+await test('產生器：同種子完全相同', () => {
   const spec = { w: 8, h: 8, colors: 2, wrap: true, lockRatio: 0.1 };
   assert.deepEqual(generate(spec, 's1'), generate(spec, 's1'));
   assert.notDeepEqual(generate(spec, 's1'), generate(spec, 's2'));
 });
 
-test('闖關 500 關：全部有解、開局未過關、水源數正確、照點標準步數必過關', () => {
+await test('闖關 500 關：全部有解、開局未過關、水源數正確、照點標準步數必過關', () => {
   for (const diff of DIFFS) {
     for (let i = 0; i < LEVELS_PER_DIFF; i++) {
       const b = campaignBoard(diff, i);
@@ -173,7 +178,7 @@ test('闖關 500 關：全部有解、開局未過關、水源數正確、照點
   }
 });
 
-test('難度規格：盤面由小到大、進階機關只在較高難度', () => {
+await test('難度規格：盤面由小到大、進階機關只在較高難度', () => {
   assert.equal(levelSpec('tot', 0).w, 3);
   assert.equal(levelSpec('tot', 99).colors, 1);
   assert.equal(levelSpec('easy', 99).wrap, false);
@@ -187,7 +192,7 @@ test('難度規格：盤面由小到大、進階機關只在較高難度', () =>
   assert.equal(HINTS.myth, 1);
 });
 
-test('每日挑戰：同日同題、隔日換題、五難度各一題', () => {
+await test('每日挑戰：同日同題、隔日換題、五難度各一題', () => {
   for (const diff of DIFFS) {
     assert.deepEqual(dailyBoard(diff, '2026-11-13'), dailyBoard(diff, '2026-11-13'));
     assert.notDeepEqual(dailyBoard(diff, '2026-11-13'), dailyBoard(diff, '2026-11-14'));
@@ -196,14 +201,14 @@ test('每日挑戰：同日同題、隔日換題、五難度各一題', () => {
   assert.notDeepEqual(dailyBoard('easy', '2026-11-13').cells, dailyBoard('normal', '2026-11-13').cells);
 });
 
-test('每日挑戰：以台北時間午夜換日', () => {
+await test('每日挑戰：以台北時間午夜換日', () => {
   assert.equal(taipeiDateKey(Date.UTC(2026, 10, 13, 15, 59, 59)), '2026-11-13');
   assert.equal(taipeiDateKey(Date.UTC(2026, 10, 13, 16, 0, 0)), '2026-11-14');
   assert.equal(shiftDateKey('2026-03-01', -1), '2026-02-28');
   assert.equal(shiftDateKey('2026-12-31', 1), '2027-01-01');
 });
 
-test('隨機模式：有解且不同種子不同題', () => {
+await test('隨機模式：有解且不同種子不同題', () => {
   for (const diff of DIFFS) {
     for (let k = 0; k < 40; k++) {
       const b = randomBoard(diff, 'r' + k);
@@ -214,7 +219,7 @@ test('隨機模式：有解且不同種子不同題', () => {
   assert.notDeepEqual(randomBoard('easy', 'a'), randomBoard('easy', 'b'));
 });
 
-test('評星：步數、時間與提示', () => {
+await test('評星：步數、時間與提示', () => {
   const base = { diff: 'easy', par: 10, timeLimit: 100 };
   assert.equal(rateStars({ ...base, moves: 12, seconds: 50, hints: 0 }), 3);
   assert.equal(rateStars({ ...base, moves: 12, seconds: 101, hints: 0 }), 2);
@@ -223,6 +228,169 @@ test('評星：步數、時間與提示', () => {
   assert.equal(rateStars({ ...base, moves: 17, seconds: 10, hints: 0 }), 1);
   assert.equal(rateStars({ diff: 'tot', par: 5, moves: 99, seconds: 999, hints: 9, timeLimit: 1 }), 3);
   assert.equal(starTimeLimit({ w: 5, h: 5 }), 100);
+});
+
+/* ---------- 一局遊戲 ---------- */
+const playOut = (ses, t0 = 1000) => {
+  let t = t0;
+  ses.board.cells.forEach((c, k) => {
+    while (!c.locked && !isAligned(c)) ses.tap(k, (t += 1000));
+  });
+  return t;
+};
+
+await test('對局：照標準步數玩完會過關，步數與時間正確', () => {
+  const ses = new Session(campaignBoard('easy', 0), { mode: 'campaign', diff: 'easy', index: 0 });
+  assert.equal(ses.seconds(5000), 0, '還沒動之前不計時');
+  playOut(ses);
+  assert.equal(ses.done, true);
+  assert.equal(ses.moves, ses.par);
+  const r = ses.result();
+  assert.equal(r.stars, 3);
+  assert.equal(r.seconds, ses.par - 1);
+  assert.equal(ses.tap(0).ok, false, '過關後不能再轉');
+  assert.equal(ses.undo(), -1);
+});
+
+await test('對局：鎖住的水管點了無效且不算步數', () => {
+  const b = campaignBoard('tot', 30);
+  const ses = new Session(b, { mode: 'campaign', diff: 'tot', index: 30 });
+  const k = b.cells.findIndex((c) => c.locked);
+  assert.ok(k >= 0);
+  assert.deepEqual(ses.tap(k), { ok: false, reason: 'locked' });
+  assert.equal(ses.moves, 0);
+  assert.equal(ses.started, false);
+});
+
+await test('對局：復原會轉回去但步數不退', () => {
+  const b = campaignBoard('easy', 3);
+  const ses = new Session(b, { mode: 'campaign', diff: 'easy', index: 3 });
+  const k = b.cells.findIndex((c) => !c.locked && period(c.mask) === 4);
+  const before = b.cells[k].rot;
+  ses.tap(k, 1);
+  assert.equal(ses.undo(), k);
+  assert.equal(b.cells[k].rot, before);
+  assert.equal(ses.moves, 1);
+  assert.equal(ses.canUndo, false);
+});
+
+await test('對局：提示次數依難度、用完就不能再用、被提示的格子不會被復原', () => {
+  const b = campaignBoard('myth', 0);
+  const ses = new Session(b, { mode: 'campaign', diff: 'myth', index: 0 });
+  const target = ses._hintTarget();
+  ses.tap(target, 1);
+  const h = ses.hint(2);
+  assert.ok(h.i >= 0);
+  assert.equal(ses.hintsLeft, 0);
+  assert.equal(ses.canHint, false);
+  assert.equal(ses.hint(), -1);
+  assert.ok(!ses.undoStack.includes(h.i));
+  assert.equal(b.cells[h.i].locked, true);
+  playOut(ses);
+  assert.equal(ses.done, true);
+  assert.ok(ses.result().stars < 3, '用過提示拿不到三星');
+});
+
+await test('對局：幼幼班提示不限次數，一路提示到過關且一律三星', () => {
+  const ses = new Session(campaignBoard('tot', 5), { mode: 'campaign', diff: 'tot', index: 5 });
+  let guard = 0;
+  while (!ses.done && guard++ < 100) assert.notEqual(ses.hint(guard), -1);
+  assert.equal(ses.done, true);
+  assert.equal(ses.result().stars, 3);
+});
+
+await test('對局：暫停期間不計時', () => {
+  const ses = new Session(campaignBoard('easy', 1), { mode: 'campaign', diff: 'easy', index: 1 });
+  const k = ses.board.cells.findIndex((c) => !c.locked && period(c.mask) > 1);
+  ses.tap(k, 1000);
+  ses.pause(3000);
+  assert.equal(ses.paused, true);
+  assert.equal(ses.seconds(9000), 2);
+  ses.resume(9000);
+  assert.equal(ses.seconds(10000), 3);
+});
+
+/* ---------- 進度與成就 ---------- */
+const res = (o) => ({ mode: 'campaign', diff: 'easy', index: 0, moves: 10, par: 10, seconds: 20, timeLimit: 100, hints: 0, stars: 3, ...o });
+
+await test('進度：闖關依序解鎖、星數只會變多、最佳成績會更新', () => {
+  const p = emptyProgress();
+  assert.equal(unlockedCount(p, 'easy'), 1);
+  assert.equal(isUnlocked(p, 'easy', 1), false);
+  let out = recordResult(p, res({ stars: 2, moves: 14 }), '2026-11-13');
+  assert.equal(out.firstClear, true);
+  assert.equal(out.newBest, false);
+  assert.ok(out.newAchievements.includes('first'));
+  assert.equal(isUnlocked(p, 'easy', 1), true);
+  assert.equal(isUnlocked(p, 'easy', 2), false);
+  out = recordResult(p, res({ stars: 1, moves: 30 }), '2026-11-13');
+  assert.equal(p.camp.easy.stars[0], 2);
+  assert.equal(out.newBest, false);
+  out = recordResult(p, res({ stars: 3, moves: 10 }), '2026-11-13');
+  assert.equal(out.newBest, true);
+  assert.equal(starTotal(p, 'easy'), 3);
+  assert.equal(p.stats.clears, 3);
+  assert.equal(isUnlocked(p, 'hard', 0), true);
+});
+
+await test('進度：每日挑戰連續天數與一天五題成就', () => {
+  const p = emptyProgress();
+  const day = (k, diff = 'easy') => recordResult(p, res({ mode: 'daily', dateKey: k, diff }), k);
+  day('2026-11-10');
+  day('2026-11-11');
+  assert.equal(dailyStreak(p, '2026-11-12'), 2, '今天還沒玩，昨天的連續不中斷');
+  let out = day('2026-11-12');
+  assert.ok(out.newAchievements.includes('streak3'));
+  assert.equal(dailyStreak(p, '2026-11-14'), 0, '隔一天沒玩就歸零');
+  for (const d of DIFFS) out = day('2026-11-20', d);
+  assert.equal(dailyDoneCount(p, '2026-11-20'), 5);
+  assert.ok(out.newAchievements.includes('daily5'));
+  assert.equal(p.stats.maxStreak, 3);
+});
+
+await test('進度：壞掉的存檔會被修成可用的資料', () => {
+  const p = normalizeProgress({ camp: { easy: { stars: [3, 9, -1, 'x'] }, hard: 5 }, daily: { bad: 1, '2026-11-13': { easy: { m: 1, s: 1, st: 3 } } }, stats: { clears: 'a', taps: 7 }, ach: null });
+  assert.deepEqual(p.camp.easy.stars, [3, 3, 0, 0]);
+  assert.deepEqual(p.camp.hard.stars, []);
+  assert.deepEqual(Object.keys(p.daily), ['2026-11-13']);
+  assert.equal(p.stats.clears, 0);
+  assert.equal(p.stats.taps, 7);
+  assert.deepEqual(normalizeProgress(null), emptyProgress());
+});
+
+await test('進度：隨機模式只記次數與最快時間，不影響闖關', () => {
+  const p = emptyProgress();
+  recordResult(p, res({ mode: 'random', diff: 'hard', seconds: 50 }), '2026-11-13');
+  const out = recordResult(p, res({ mode: 'random', diff: 'hard', seconds: 40 }), '2026-11-13');
+  assert.equal(out.newBest, true);
+  assert.equal(p.stats.random.hard, 2);
+  assert.equal(p.stats.randomBest.hard.s, 40);
+  assert.equal(unlockedCount(p, 'hard'), 1);
+});
+
+/* ---------- 語系 ---------- */
+await test('語系：三個語言的 key 完全一致、沒有空字串、參數名稱相同', async () => {
+  const { LOCALES } = await import('../public/js/locales.js');
+  const base = Object.keys(LOCALES['zh-Hant']).sort();
+  for (const lang of ['zh-Hans', 'en']) {
+    assert.deepEqual(Object.keys(LOCALES[lang]).sort(), base, lang + ' 的 key 與繁中不一致');
+    for (const k of base) {
+      assert.ok(LOCALES[lang][k].trim().length > 0, `${lang} ${k} 是空的`);
+      const params = (s) => (s.match(/\{\w+\}/g) || []).sort().join();
+      assert.equal(params(LOCALES[lang][k]), params(LOCALES['zh-Hant'][k]), `${lang} ${k} 的參數不同`);
+    }
+  }
+  // 程式裡用到的 key 都要存在
+  const fs = await import('node:fs');
+  const used = new Set();
+  for (const f of ['app.js', 'ui/game.js', 'ui/screens.js', 'i18n.js']) {
+    const src = fs.readFileSync(new URL('../public/js/' + f, import.meta.url), 'utf8');
+    for (const m of src.matchAll(/\bt\('([a-zA-Z0-9.]+)'/g)) used.add(m[1]);
+  }
+  for (const k of used) {
+    if (k.endsWith('.')) assert.ok(base.some((b) => b.startsWith(k)), '找不到以 ' + k + ' 開頭的文字');
+    else assert.ok(base.includes(k), '缺少文字：' + k);
+  }
 });
 
 console.log(`規則測試全部通過：${passed} 項`);
