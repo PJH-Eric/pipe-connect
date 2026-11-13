@@ -149,6 +149,9 @@ button { font: inherit; color: inherit; }
 .stars .on { color: var(--gold); }
 .stars .off { color: #3c5673; }
 .stars-xs { font-size: 11px; gap: 1px; }
+.stars-sm { font-size: 16px; gap: 2px; }
+.hud-stars { margin-left: auto; display: flex; align-items: center; }
+.levels-continue { min-height: 44px; padding: 6px 14px; }
 .stars-lg { font-size: 34px; gap: 6px; }
 .stars-xl { font-size: clamp(44px, 12vmin, 68px); gap: 8px; }
 .diff-dot { width: 16px; height: 16px; border-radius: 50%; flex: none; background: var(--dc, var(--accent)); box-shadow: 0 0 0 3px rgba(255, 255, 255, .14); }
@@ -282,7 +285,8 @@ button { font: inherit; color: inherit; }
 .countdown.go .cd-num { background: var(--gold); border-color: #fff3c4; box-shadow: 0 8px 0 #9a7a17; color: #3b2c00; font-size: clamp(2.2rem, 9vmin, 4rem); min-width: clamp(160px, 40vmin, 300px); }
 .countdown .cd-num.pop { animation: cd-pop .45s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes cd-pop { from { transform: scale(.4); opacity: .2; } }
-.zoom { position: absolute; right: calc(8px + var(--sar)); bottom: 8px; display: flex; flex-direction: column; gap: 8px; }
+/* 直向時盤面下方有空位，縮放鈕橫排在右下；橫向時空位在兩側，改直排 */
+.zoom { position: absolute; right: calc(8px + var(--sar)); bottom: 8px; display: flex; flex-direction: row; gap: 8px; }
 .zoom .icon-btn { background: rgba(23, 50, 77, .88); }
 
 /* 橫向：資訊與操作收到左側欄，盤面盡量放大 */
@@ -303,7 +307,6 @@ button { font: inherit; color: inherit; }
   .bar { gap: 5px; }
   .bar .btn { min-height: 44px; padding: 4px 8px; font-size: 15px; }
   .hud-tags .tag { font-size: 12px; padding: 1px 7px; }
-  .zoom { flex-direction: row; }
 }
 
 /* ---------- 疊層 ---------- */
@@ -378,6 +381,9 @@ button { font: inherit; color: inherit; }
   .pick:not(.daily) .card-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) and (orientation: portrait) {
+  /* 頂列放不下完整的關卡名稱：改顯示在資訊列，頂列標題收起 */
+  #app[data-screen="game"] .top-title { visibility: hidden; }
+  .hud-label { display: block; flex: 1 1 100%; font-size: 16px; }
   .chip { padding: 6px 8px; gap: 6px; }
   .chip > .ico { font-size: 15px; }
   .chip-value { font-size: 15px; }
@@ -418,6 +424,15 @@ button { font: inherit; color: inherit; }
   .modal-menu .menu-col { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .modal-menu { width: min(100%, 560px); }
   .btn-lg { min-height: 46px; }
+}
+
+/* 矮的直向螢幕：結算的主要按鈕整排，其餘兩顆一排，把高度留給結算內容 */
+@media (max-height: 640px) and (orientation: portrait) {
+  .modal-result .modal-foot { flex-direction: row; flex-wrap: wrap; gap: 8px; padding: 8px 14px 14px; }
+  .modal-result .modal-foot .btn { flex: 1 1 calc(50% - 4px); min-height: 46px; padding: 6px 8px; font-size: 15px; }
+  .modal-result .modal-foot .btn-primary { flex-basis: 100%; }
+  .stars-xl { font-size: 40px; }
+  .res { gap: 6px; }
 }
 
 /* ---------- 減少動態 ---------- */

@@ -1,5 +1,6 @@
 /* ===== game.js — 遊戲畫面：3D 盤面＋資訊欄＋操作列＋暫停／結算彈窗 ===== */
 import { h, icon, Button, IconButton, openModal, hasModal, toast, Stars, fmtTime } from './kit.js';
+import { DIFFS, rateStars, starTimeLimit } from '../core/levels.js';
 import { t } from '../i18n.js';
 import { store, save } from '../storage.js';
 import { sfx, vibrate } from '../audio.js';
@@ -36,6 +37,9 @@ export function gameScreen(params, ctx) {
   /* ---------- 版面 ---------- */
   const elLabel = h('div', { class: 'hud-label' });
   const elTags = h('div', { class: 'hud-tags' });
+  // 目前這樣玩下去可以拿幾顆星（步數、時間或提示超過門檻就會少一顆）
+  const elStars = h('div', { class: 'hud-stars' });
+  let shownStars = -1;
   const chip = (ico, cls) => {
     const value = h('b', { class: 'chip-value' });
     const name = h('span', { class: 'chip-name' });
@@ -45,7 +49,7 @@ export function gameScreen(params, ctx) {
   const chipTime = chip('clock', 'chip-time');
   const chipWet = chip('drop', 'chip-wet');
   const elWarn = h('div', { class: 'hud-warn', role: 'status', hidden: true });
-  const hud = h('div', { class: 'hud' }, h('div', { class: 'hud-head' }, elLabel, elTags), h('div', { class: 'hud-chips' }, chipMoves.root, chipTime.root, chipWet.root), elWarn);
+  const hud = h('div', { class: 'hud' }, h('div', { class: 'hud-head' }, elLabel, elTags, elStars), h('div', { class: 'hud-chips' }, chipMoves.root, chipTime.root, chipWet.root), elWarn);
 
   const btnUndo = Button({ ico: 'undo', label: '', onClick: () => doUndo() });
   const btnHint = Button({ ico: 'hint', label: '', badge: '', onClick: () => doHint() });
@@ -96,6 +100,7 @@ export function gameScreen(params, ctx) {
     if (b.colors > 1) tips.push(t('game.tipColors'));
     if (b.wrap) tips.push(t('game.tipWrap'));
     tip.replaceChildren(...tips.map((x) => h('p', null, x)));
+    shownStars = -1;
     refreshHud();
   }
 
@@ -108,8 +113,23 @@ export function gameScreen(params, ctx) {
     btnHint.disabled = cd.active || !session.canHint;
     btnRestart.disabled = cd.active;
     btnHint.querySelector('.btn-badge').textContent = session.hintsLeft === Infinity ? '∞' : String(session.hintsLeft);
+    refreshStars();
     elWarn.hidden = !f.mixed;
     elWarn.textContent = f.mixed ? t('game.mixed') : '';
+  }
+
+  function refreshStars() {
+    if (params.diff === 'tot') {
+      elStars.hidden = true;
+      return;
+    }
+    const n = rateStars({ diff: params.diff, par: session.par, moves: session.moves, seconds: session.seconds(), hints: session.hintsUsed, timeLimit: starTimeLimit(session.board) });
+    if (n === shownStars) return;
+    shownStars = n;
+    const row = Stars(n, { size: 'stars-sm' });
+    row.setAttribute('aria-label', t('game.starsNow', { n }));
+    row.title = t('game.starsNow', { n });
+    elStars.replaceChildren(row);
   }
 
   /* ---------- 開局倒數 ---------- */
@@ -178,9 +198,17 @@ export function gameScreen(params, ctx) {
     session = new Session(makeBoard(params), params);
     lastWet = session.flow.wet;
     cursor = -1;
+    shownStars = -1;
     scene.setBoard(session.board);
     scene.applyFlow(session.flow, { instant: true });
     refreshTexts();
+    // 格子在螢幕上太小時（大盤面＋小手機），第一次提醒可以放大
+    requestAnimationFrame(() => {
+      if (left || store().last.zoomTipSeen || scene.measure().cellPx >= 34) return;
+      store().last.zoomTipSeen = true;
+      save();
+      toast(t('game.zoomTip'), 'plus');
+    });
     window.GameAnalytics?.reset();
     window.GameAnalytics?.start({ mode: 'solo', variant: params.mode, difficulty: params.diff });
     startCountdown();
@@ -208,6 +236,7 @@ export function gameScreen(params, ctx) {
       if (r.reason === 'locked') {
         sfx('locked');
         vibrate(30);
+        scene.shake(i);
         if (!store().last.lockedTipSeen) {
           store().last.lockedTipSeen = true;
           save();
@@ -350,7 +379,14 @@ export function gameScreen(params, ctx) {
     } else if (params.mode === 'random') {
       actions.push(Button({ ico: 'dice', label: t('result.newGame'), variant: 'primary', size: 'lg', onClick: go(() => ctx.go('game', { ...params, seed: newRandomSeed() }, { replace: true })) }));
     } else {
-      actions.push(Button({ ico: 'restart', label: t('result.again'), variant: 'primary', size: 'lg', onClick: go(restart) }));
+      // 每日挑戰：今天還有沒完成的難度就直接帶去下一題
+      const day = store().progress.daily[params.dateKey] || {};
+      const at = DIFFS.indexOf(params.diff);
+      const nextDiff = [...DIFFS.slice(at + 1), ...DIFFS.slice(0, at)].find((d) => !day[d]);
+      if (nextDiff && params.dateKey === taipeiDateKey()) {
+        actions.push(Button({ ico: 'next', label: t('result.nextDaily', { diff: t('diff.' + nextDiff) }), variant: 'primary', size: 'lg', attrs: { 'data-act': 'next-daily' }, onClick: go(() => ctx.go('game', { ...params, diff: nextDiff }, { replace: true })) }));
+      }
+      actions.push(Button({ ico: 'restart', label: t('result.again'), variant: nextDiff ? 'soft' : 'primary', size: 'lg', onClick: go(restart) }));
     }
     actions.push(Button({ ico: 'list', label: t('result.back.' + params.mode), size: 'lg', onClick: go(() => ctx.back()) }));
     actions.push(Button({ ico: 'home', label: t('result.home'), size: 'lg', onClick: go(() => ctx.home()) }));
@@ -388,7 +424,10 @@ export function gameScreen(params, ctx) {
 
   /* ---------- 啟動 ---------- */
   const tick = setInterval(() => {
-    if (session && !session.done) chipTime.value.textContent = fmtTime(session.seconds());
+    if (session && !session.done) {
+      chipTime.value.textContent = fmtTime(session.seconds());
+      refreshStars();
+    }
   }, 250);
   document.addEventListener('keydown', onKey);
   document.addEventListener('visibilitychange', onVisibility);

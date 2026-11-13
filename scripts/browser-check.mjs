@@ -115,7 +115,8 @@ if (!skipFlow) {
   if ((await page.locator('.level:not(.is-locked)').count()) !== 1) note('新玩家應該只有第 1 關可玩');
   await page.locator('.level').nth(3).click({ force: true });
   if (!(await page.locator('.toast.show').count())) note('點鎖住的關卡沒有提示');
-  await click(page, '.level');
+  if (!/1/.test(await page.locator('.levels-continue').textContent())) note('選關畫面的「繼續」應該指向第 1 關');
+  await click(page, '.levels-continue');
   await page.waitForFunction(() => window.__game?.session);
   // 開局 3、2、1 遮罩：看得到、擋住操作、倒數完才計時；倒數中暫停再繼續會重數
   await settle(page, 300);
@@ -249,7 +250,21 @@ if (!skipFlow) {
   await page.goBack();
   await click(page, '.mode-random');
   await page.locator('.diff-card').nth(1).click();
-  await page.waitForFunction(() => window.__game?.session);
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  // 即時星星：開局三顆，用了提示就少一顆；點鎖住的水管會晃動且不算步數
+  const starsOn = () => page.locator('.hud-stars .ico.on').count();
+  if ((await starsOn()) !== 3) note('開局的即時星星應該是三顆');
+  await page.keyboard.press('h');
+  await settle(page, 400);
+  if ((await starsOn()) !== 2) note('用了提示後即時星星應該剩兩顆');
+  const lockedShake = await page.evaluate(() => {
+    const g = window.__game;
+    const k = g.session.board.cells.findIndex((c) => c.locked);
+    const before = g.session.moves;
+    g.doTap(k);
+    return { shaking: g.scene.cells[k].shakeT0 >= 0, same: g.session.moves === before };
+  });
+  if (!lockedShake.shaking || !lockedShake.same) note('點鎖住的水管應該晃動且不算步數：' + JSON.stringify(lockedShake));
   await context.close();
 }
 
@@ -274,6 +289,11 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
     await settle(page, 900);
     await audit(page, tag('game'));
+    {
+      // 盤面要完整在畫面內，而且在較緊的那個方向至少佔 80%，不能縮成一小塊
+      const m = await page.evaluate(() => window.__game.scene.measure());
+      if (!m.inside || Math.max(m.fillX, m.fillY) < 0.8) note(tag('game') + '：盤面沒有放到最大或超出畫面 ' + JSON.stringify(m));
+    }
     await page.goBack();
     await page.goBack();
     await click(page, '.mode-daily');
@@ -285,6 +305,11 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
     await settle(page, 600);
     await audit(page, tag('game-myth'));
+    {
+      // 盤面要完整在畫面內，而且在較緊的那個方向至少佔 80%，不能縮成一小塊
+      const m = await page.evaluate(() => window.__game.scene.measure());
+      if (!m.inside || Math.max(m.fillX, m.fillY) < 0.8) note(tag('game-myth') + '：盤面沒有放到最大或超出畫面 ' + JSON.stringify(m));
+    }
     await page.evaluate(() => {
       const g = window.__game;
       for (let i = 0; i < 600 && !g.session.done; i++) {
@@ -296,6 +321,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await page.waitForSelector('.modal-result', { timeout: 6000 });
     await settle(page, 900);
     await audit(page, tag('result'));
+    if (!(await page.locator('.modal-result [data-act="next-daily"]').count())) note(tag('result') + '：每日挑戰結算沒有「下一題」');
     await page.locator('.modal-result .modal-foot .btn').last().click();
     await page.waitForSelector('.home');
     await click(page, '.mode-random');

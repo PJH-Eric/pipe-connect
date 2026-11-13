@@ -104,7 +104,7 @@ export class PipeScene {
     container.appendChild(canvas);
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(32, 1, 0.1, 200);
+    this.camera = new THREE.PerspectiveCamera(26, 1, 0.1, 200);
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x4a5f78, 1.25));
     const sun = new THREE.DirectionalLight(0xffffff, 1.9);
     sun.position.set(3.5, 9, 5);
@@ -243,7 +243,7 @@ export class PipeScene {
       return {
         group, material, turns, angle: -turns * HALF_PI, from: -turns * HALF_PI, turnT0: -1,
         cur: new THREE.Color(WATER_COLORS[0]), start: new THREE.Color(WATER_COLORS[0]), target: new THREE.Color(WATER_COLORS[0]),
-        colorT0: -1, colorCode: 0, bounceT0: -1,
+        colorT0: -1, colorCode: 0, bounceT0: -1, shakeT0: -1,
       };
     });
     this._paintTiles();
@@ -338,6 +338,14 @@ export class PipeScene {
     c.material.emissiveIntensity = wet ? 0.28 : 0;
   }
 
+  /** 點到鎖住的水管：原地晃兩下表示轉不動 */
+  shake(i) {
+    const c = this.cells[i];
+    if (!c || this.reduced) return;
+    c.shakeT0 = performance.now();
+    this.dirty = true;
+  }
+
   /** 過關慶祝：水管依離水源的距離像波浪一樣彈起來 */
   celebrate(dist) {
     if (this.reduced) return;
@@ -379,7 +387,7 @@ export class PipeScene {
   _fit() {
     if (!this.board) return;
     const { w, h } = this.board;
-    const pad = this.board.wrap ? 0.62 : 0.45; // 環繞盤面外圈還有一排箭頭
+    const pad = this.board.wrap ? 0.5 : 0.32; // 環繞盤面外圈還有一排箭頭
     const hw = w / 2 + pad, hh = h / 2 + pad;
     const corners = [];
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [-0.3, 0.9]) corners.push(new THREE.Vector3(sx * hw, y, sz * hh));
@@ -402,6 +410,23 @@ export class PipeScene {
     this.view.panX = saved.panX;
     this.view.panZ = saved.panZ;
     this._placeCamera();
+  }
+
+  /** 盤面底座投影後佔畫面的比例與格子的螢幕尺寸（巡檢用） */
+  measure() {
+    const { w, h } = this.board;
+    const el = this.renderer.domElement;
+    let minX = 1, maxX = -1, minY = 1, maxY = -1;
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [-0.36, 0.06]) {
+      const p = new THREE.Vector3(sx * (w / 2 + 0.25), y, sz * (h / 2 + 0.25)).project(this.camera);
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+    const a = new THREE.Vector3(-0.5, 0.06, 0).project(this.camera), b = new THREE.Vector3(0.5, 0.06, 0).project(this.camera);
+    return {
+      fillX: +((maxX - minX) / 2).toFixed(3), fillY: +((maxY - minY) / 2).toFixed(3),
+      inside: minX >= -1 && maxX <= 1 && minY >= -1 && maxY <= 1,
+      cellPx: Math.round(((b.x - a.x) / 2) * el.clientWidth), stage: [el.clientWidth, el.clientHeight],
+    };
   }
 
   _placeCamera() {
@@ -561,6 +586,14 @@ export class PipeScene {
         const e = 1 - (1 - t) * (1 - t);
         c.group.rotation.y = c.from + (c.angle - c.from) * e;
         if (t >= 1) c.turnT0 = -1;
+        busy = true;
+      }
+      if (c.shakeT0 >= 0 && c.turnT0 < 0) {
+        const t = (now - c.shakeT0) / 280;
+        if (t >= 1) {
+          c.shakeT0 = -1;
+          c.group.rotation.y = c.angle;
+        } else c.group.rotation.y = c.angle + Math.sin(t * Math.PI * 4) * 0.13 * (1 - t);
         busy = true;
       }
       if (c.colorT0 >= 0) {
