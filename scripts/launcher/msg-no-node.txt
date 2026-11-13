@@ -1,0 +1,5 @@
+
+找不到 Node.js 26.12.1 以上的版本。
+  安裝 Node.js：https://nodejs.org
+  （這款遊戲用了 ES 模組，不能直接點開 public\index.html，需要透過本機伺服器）
+

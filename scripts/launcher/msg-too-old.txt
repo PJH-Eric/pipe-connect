@@ -1,0 +1,2 @@
+
+找到的 Node.js 版本太舊，需要 26.12.1 以上：https://nodejs.org
