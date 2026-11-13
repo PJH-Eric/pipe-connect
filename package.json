@@ -6,8 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node tests/verify.js",
+    "test": "node tests/verify.js && node scripts/contrast-check.mjs",
     "verify": "node tests/verify.js",
+    "test:contrast": "node scripts/contrast-check.mjs",
     "test:browser": "node scripts/browser-check.mjs"
   },
   "engines": {

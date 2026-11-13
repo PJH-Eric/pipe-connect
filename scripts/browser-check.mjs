@@ -150,6 +150,20 @@ if (!skipFlow) {
   const after = await page.evaluate(() => window.__game.session.moves);
   if (after <= before) note('點擊盤面沒有轉動任何水管');
   await page.keyboard.press('z');
+  // 玩到一半把裝置轉向：盤面要重新放滿、不能跑出畫面，步數與進度不變
+  {
+    const before2 = await page.evaluate(() => window.__game.session.moves);
+    await page.setViewportSize({ width: 820, height: 1180 });
+    await settle(page, 500);
+    await audit(page, 'flow-rotated');
+    const m = await page.evaluate(() => window.__game.scene.measure());
+    if (!m.inside || Math.max(m.fillX, m.fillY) < 0.8) note('轉成直向後盤面沒有重新放滿：' + JSON.stringify(m));
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await settle(page, 500);
+    const m2 = await page.evaluate(() => window.__game.scene.measure());
+    if (!m2.inside || Math.max(m2.fillX, m2.fillY) < 0.8) note('轉回橫向後盤面沒有重新放滿：' + JSON.stringify(m2));
+    if ((await page.evaluate(() => window.__game.session.moves)) !== before2) note('轉向後步數變了');
+  }
   // 視角：沒放大時拖曳是轉視角；放大後拖曳改成平移；視角復位會全部還原
   {
     const drag = async () => {
@@ -265,6 +279,16 @@ if (!skipFlow) {
     return { shaking: g.scene.cells[k].shakeT0 >= 0, same: g.session.moves === before };
   });
   if (!lockedShake.shaking || !lockedShake.same) note('點鎖住的水管應該晃動且不算步數：' + JSON.stringify(lockedShake));
+  await context.close();
+}
+
+/* ---------- 1b. 系統開了「減少動態效果」的新玩家，預設就要減少動態 ---------- */
+if (!skipFlow) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await page.goto(URL_);
+  await page.waitForSelector('#app[data-ready]');
+  if (!(await page.evaluate(() => document.documentElement.classList.contains('reduce-motion')))) note('系統要求減少動態時，新玩家沒有預設開啟減少動態');
   await context.close();
 }
 

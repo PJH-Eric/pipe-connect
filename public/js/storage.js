@@ -20,6 +20,14 @@ function load() {
       if (typeof raw.settings[k] === typeof DEFAULT_SETTINGS[k]) settings[k] = raw.settings[k];
     }
   }
+  // 第一次來、還沒自己設定過：跟著系統的「減少動態效果」
+  if (typeof raw.settings?.reduceMotion !== 'boolean') {
+    try {
+      settings.reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      /* 沒有 matchMedia 的環境（測試）就用預設 */
+    }
+  }
   data = {
     lang: typeof raw.lang === 'string' ? raw.lang : '',
     settings,

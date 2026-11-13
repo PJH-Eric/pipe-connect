@@ -15,6 +15,11 @@
   --accent-ink: #052a33;
   --gold: #ffd257;
   --danger: #ff7b6b;
+  --warn-bg: #5a2420;
+  --tab-sub-on: #0b4954;
+  --dim: #7f9bb6;
+  --dim-bg: #10263b;
+  --lock-ink: #5f7d99;
   --tot: #ff9ec4;
   --easy: #6fdc8c;
   --normal: #5cb8ff;
@@ -46,6 +51,8 @@ body {
 }
 h1, h2, p { margin: 0; }
 button { font: inherit; color: inherit; }
+/* 連點按鈕不要觸發瀏覽器的雙擊放大 */
+button, a, [role="switch"] { touch-action: manipulation; }
 [hidden] { display: none !important; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 :focus { outline: none; }
@@ -183,7 +190,7 @@ button { font: inherit; color: inherit; }
 .tab-label { font-size: clamp(13px, 3.9vw, 16px); white-space: nowrap; }
 .tab-sub { font-size: 12px; color: var(--mute); font-weight: 700; }
 .tab[aria-selected="true"] { background: var(--accent); border-color: #8ff0fb; color: var(--accent-ink); box-shadow: 0 4px 0 var(--accent-deep); }
-.tab[aria-selected="true"] .tab-sub { color: #0b4954; }
+.tab[aria-selected="true"] .tab-sub { color: var(--tab-sub-on); }
 .levels-info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; flex: none; }
 .levels-info .card-tags { margin: 0; }
 .levels-desc { color: var(--mute); font-size: 14px; }
@@ -196,7 +203,7 @@ button { font: inherit; color: inherit; }
 .level-num { font-size: 20px; font-weight: 800; }
 .level.is-done { background: #1d4d5c; border-color: #2f8a9c; }
 .level.is-current { border-color: var(--gold); box-shadow: 0 4px 0 #9a7a17, 0 0 0 3px rgba(255, 210, 87, .28); }
-.level.is-locked { background: #10263b; color: #5f7d99; cursor: default; }
+.level.is-locked { background: var(--dim-bg); color: var(--lock-ink); cursor: default; }
 .level-lock { font-size: 14px; }
 
 /* ---------- 每日挑戰 ---------- */
@@ -244,8 +251,8 @@ button { font: inherit; color: inherit; }
 .prog-num { font-variant-numeric: tabular-nums; }
 .prog-stars { display: inline-flex; align-items: center; gap: 3px; color: var(--gold); min-width: 52px; justify-content: flex-end; }
 .ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
-.ach { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; border: 2px solid var(--line); background: rgba(12, 28, 46, .6); color: #7f9bb6; }
-.ach-ico { width: 42px; height: 42px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 19px; background: #10263b; }
+.ach { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 14px; border: 2px solid var(--line); background: var(--dim-bg); color: var(--dim); }
+.ach-ico { width: 42px; height: 42px; flex: none; border-radius: 12px; display: grid; place-items: center; font-size: 19px; background: #0a1a2b; }
 .ach-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ach-text span { font-size: 13px; line-height: 1.4; }
 .ach.is-on { background: var(--panel); color: var(--ink); border-color: #9a7a17; }
@@ -265,7 +272,7 @@ button { font: inherit; color: inherit; }
 .chip-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .chip-name { font-size: 12px; color: var(--mute); font-weight: 700; white-space: nowrap; }
 .chip-value { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.hud-warn { padding: 6px 10px; border-radius: 10px; background: #5a2420; border: 2px solid var(--danger); font-weight: 800; font-size: 14px; text-align: center; }
+.hud-warn { padding: 6px 10px; border-radius: 10px; background: var(--warn-bg); border: 2px solid var(--danger); font-weight: 800; font-size: 14px; text-align: center; }
 .bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal)); }
 .bar .btn { padding: 8px 6px; min-height: 52px; }
 .stage { grid-area: stage; position: relative; min-height: 0; min-width: 0; overflow: hidden; }
