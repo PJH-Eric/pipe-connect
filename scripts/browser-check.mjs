@@ -37,6 +37,8 @@ const URL_ = `http://localhost:${server.address().port}/`;
 const VIEWPORTS = [
   ['phone-portrait', 390, 844], ['phone-landscape', 844, 390], ['phone-small', 320, 568],
   ['tablet-portrait', 820, 1180], ['tablet-landscape', 1180, 820], ['desktop', 1440, 900],
+  // 極端尺寸：平常不跑，用 --only= 指定（摺疊機外螢幕、超寬矮視窗、瘦長視窗、摺疊機展開、大螢幕）
+  ['x-tiny', 280, 653], ['x-wide-short', 1280, 400], ['x-tall', 400, 1000], ['x-fold', 717, 512], ['x-fhd', 1920, 1080], ['x-qhd', 2560, 1440],
 ];
 const LANGS = ['zh-Hant', 'en', 'zh-Hans'];
 const problems = [];
@@ -191,11 +193,20 @@ if (!skipFlow) {
     await page.mouse.move(2, 2);
     await settle(page, 600);
     const dripping = await sample();
-    if (dripping.leaks && (dripping.renders < 3 || dripping.renders > dripping.ticks * 0.62)) note('只有水滴在動時重畫次數不對：' + JSON.stringify(dripping));
-    await page.evaluate(() => { window.__game.scene.leaks = []; window.__game.scene._savedLeaks = true; });
-    await settle(page, 300);
+    if ((dripping.renders < 3 || dripping.renders > dripping.ticks * 0.62)) note('只有水滴在動時重畫次數不對：' + JSON.stringify(dripping));
+    // 開了「減少動態」之後水滴與水柱都不動，畫面應該完全不重畫
+    await page.evaluate(() => window.__game.scene.setReducedMotion(true));
+    await settle(page, 400);
     const idle = await sample();
-    if (idle.renders > 1) note('畫面靜止時仍在重畫：' + JSON.stringify(idle));
+    if (idle.renders > 1) note('減少動態時畫面仍在重畫：' + JSON.stringify(idle));
+    await page.evaluate(() => window.__game.scene.setReducedMotion(false));
+    // 出水口：通水的才噴水，沒水的不噴
+    const jets = await page.evaluate(() => {
+      const g = window.__game;
+      const ends = g.scene.cells.map((c, i) => ({ c, i })).filter((x) => x.c.jet);
+      return { ends: ends.length, wrong: ends.filter((x) => x.c.jet.visible !== (g.session.flow.color[x.i] !== 0)).length };
+    });
+    if (!jets.ends || jets.wrong) note('出水口的水柱和通水狀態不一致：' + JSON.stringify(jets));
   }
   // 視角：沒放大時拖曳是轉視角；放大後拖曳改成平移；視角復位會全部還原
   {
@@ -497,7 +508,7 @@ if (!skipFlow) {
 console.log('版面檢查');
 const seeded = { progress: { camp: { tot: { stars: [3, 3, 2, 1, 3] }, easy: { stars: [3, 2] } }, daily: {}, stats: { clears: 7, taps: 120, seconds: 432, hints: 3, perfect: 2, maxStreak: 2 }, ach: { first: 1 } } };
 for (const [name, vw, vh] of VIEWPORTS) {
-  if (only && !only.split(',').includes(name)) continue;
+  if (only ? !only.split(',').includes(name) : name.startsWith('x-')) continue;
   for (const lang of LANGS) {
     if (lang === 'zh-Hans' && name !== 'phone-portrait') continue; // 簡中字寬與繁中相同，抽一個尺寸確認
     const { context, page } = await open(vw, vh, lang, seeded);
@@ -507,7 +518,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
     {
       // 首頁不用捲就要看得到三個模式與兩顆次要按鈕（最小的 320×568 例外，允許捲動）
       const below = await page.evaluate(() => [...document.querySelectorAll('.home .mode-card, .home-more .btn')].filter((e) => e.getBoundingClientRect().bottom > innerHeight + 1).length);
-      if (below && name !== 'phone-small') note(tag('home') + `：首頁有 ${below} 個入口要捲動才看得到`);
+      if (below && name !== 'phone-small' && name !== 'x-tiny') note(tag('home') + `：首頁有 ${below} 個入口要捲動才看得到`);
     }
     await click(page, '.mode-campaign');
     await settle(page);

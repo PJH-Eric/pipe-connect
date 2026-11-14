@@ -60,7 +60,8 @@ export function pipeSvg(mask, { color = null, locked = false, src = false, size 
   const hub = src
     ? `<circle cx="50" cy="50" r="27" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="50" cy="50" r="12" fill="#fff" opacity=".85"/>`
     : count === 1
-      ? `<circle cx="50" cy="50" r="19" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="44" cy="44" r="5" fill="#fff" opacity=".55"/>`
+      ? // 出水口：黃銅噴嘴，中間是出水孔（有水時是水的顏色）
+        `<circle cx="50" cy="50" r="24" fill="#f2b53a" stroke="#8a5a00" stroke-width="4"/><circle cx="50" cy="50" r="13" fill="${color || '#14202c'}" stroke="#8a5a00" stroke-width="2"/>${color ? '<circle cx="45" cy="45" r="4" fill="#fff" opacity=".8"/>' : ''}`
       : '';
   const rivets = locked ? [[14, 14], [86, 14], [14, 86], [86, 86]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#4a423b"/>`).join('') : '';
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">

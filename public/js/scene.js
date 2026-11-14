@@ -10,6 +10,7 @@ const MIXED_COLOR = 0x6b4a2e;
 const TILE = { normal: 0xe4ecf2, locked: 0x8a8076, hinted: 0xf6d77a };
 const PIPE_R = 0.16;
 const PIPE_Y = 0.3;
+const NOZZLE_Y = 0.6; // 出水口噴嘴的高度
 const TURN_MS = 150;
 const HALF_PI = Math.PI / 2;
 
@@ -66,8 +67,9 @@ function buildPipeGeometry(mask, isSource, base) {
     parts.push({ geo: base.tank, matrix: place(0, 0.34, 0), shade: 0.82 });
     parts.push({ geo: base.tankRim, matrix: place(0, 0.6, 0), shade: 0.6 });
   } else if (k === 'end') {
-    parts.push({ geo: base.bulb, matrix: place(0, PIPE_Y, 0), shade: 0.9 });
-    parts.push({ geo: base.cap, matrix: place(0, PIPE_Y + 0.2, 0), shade: 0.6 });
+    // 出水口：水管轉彎朝上的一截立管；頂端的黃銅噴嘴另外畫（不會跟著水變色，才認得出來）
+    parts.push({ geo: base.hub, matrix: place(0, PIPE_Y, 0), shade: 1 });
+    parts.push({ geo: base.riser, matrix: place(0, PIPE_Y + 0.13, 0), shade: 1 });
   } else {
     parts.push({ geo: k === 'tee' || k === 'cross' ? base.hub : base.joint, matrix: place(0, PIPE_Y, 0), shade: 1 });
   }
@@ -123,8 +125,10 @@ export class PipeScene {
       flange: new THREE.CylinderGeometry(PIPE_R + 0.065, PIPE_R + 0.065, 0.09, 18, 1),
       joint: new THREE.SphereGeometry(PIPE_R, 18, 12),
       hub: new THREE.SphereGeometry(PIPE_R + 0.06, 18, 12),
-      bulb: new THREE.SphereGeometry(0.23, 20, 14),
-      cap: new THREE.CylinderGeometry(0.1, 0.13, 0.08, 14, 1),
+      riser: new THREE.CylinderGeometry(PIPE_R, PIPE_R, 0.26, 18, 1),
+      nozzle: new THREE.CylinderGeometry(0.27, 0.23, 0.12, 24, 1),
+      nozzleHole: new THREE.CylinderGeometry(0.17, 0.17, 0.02, 20, 1),
+      jet: new THREE.SphereGeometry(0.15, 16, 12),
       tank: new THREE.CylinderGeometry(0.31, 0.34, 0.46, 24, 1),
       tankRim: new THREE.CylinderGeometry(0.35, 0.35, 0.07, 24, 1),
       tile: new THREE.BoxGeometry(0.94, 0.12, 0.94),
@@ -240,6 +244,9 @@ export class PipeScene {
     this.drops.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(96 * 3), 3);
 
     // 水管
+    const brass = mat({ color: 0xf2b53a, metalness: 0.45, roughness: 0.3, emissive: 0x5a3a00, emissiveIntensity: 0.25 });
+    const holeMat = mat({ color: 0x14202c, roughness: 0.9 });
+    this.jetMats = [...WATER_COLORS, MIXED_COLOR].map((c) => mat({ color: c, emissive: c, emissiveIntensity: 0.55, roughness: 0.15, transparent: true, opacity: 0.9 }));
     const markMats = WATER_COLORS.map((c) => mat({ color: c, emissive: c, emissiveIntensity: 0.45, roughness: 0.3 }));
     this.cells = board.cells.map((cell, i) => {
       const key = cell.mask + (cell.src ? 's' : 'p');
@@ -255,11 +262,24 @@ export class PipeScene {
         if (cell.src === 3) mark.rotation.y = Math.PI / 4;
         group.add(mark);
       }
+      // 出水口的黃銅噴嘴、黑色出水孔，以及有水時才出現的水柱
+      let jet = null;
+      if (!cell.src && kind(cell.mask) === 'end') {
+        const nozzle = new THREE.Mesh(this.base.nozzle, brass);
+        nozzle.position.y = NOZZLE_Y;
+        const hole = new THREE.Mesh(this.base.nozzleHole, holeMat);
+        hole.position.y = NOZZLE_Y + 0.065;
+        jet = new THREE.Mesh(this.base.jet, this.jetMats[1]);
+        jet.position.y = NOZZLE_Y + 0.2;
+        jet.scale.set(1, 1.5, 1);
+        jet.visible = false;
+        group.add(nozzle, hole, jet);
+      }
       this.root.add(group);
       const turns = cell.rot;
       group.rotation.y = -turns * HALF_PI;
       return {
-        group, material, turns, angle: -turns * HALF_PI, from: -turns * HALF_PI, turnT0: -1,
+        group, material, jet, turns, angle: -turns * HALF_PI, from: -turns * HALF_PI, turnT0: -1,
         cur: new THREE.Color(WATER_COLORS[0]), start: new THREE.Color(WATER_COLORS[0]), target: new THREE.Color(WATER_COLORS[0]),
         colorT0: -1, colorCode: 0, bounceT0: -1, shakeT0: -1,
       };
@@ -354,6 +374,11 @@ export class PipeScene {
     const wet = c.colorCode !== 0;
     c.material.emissive.copy(c.cur);
     c.material.emissiveIntensity = wet ? 0.28 : 0;
+    // 水流到出水口才噴水（跟著顏色動畫一起出現）
+    if (c.jet) {
+      c.jet.visible = wet;
+      if (wet) c.jet.material = this.jetMats[c.colorCode < 0 ? this.jetMats.length - 1 : c.colorCode];
+    }
   }
 
   /** 點到鎖住的水管：原地晃兩下表示轉不動 */
@@ -472,6 +497,7 @@ export class PipeScene {
       if (hit(p.x, 0.06, p.z) !== i) miss.tile++;
       if (hit(p.x, PIPE_Y + PIPE_R, p.z) !== i) miss.pipeTop++;
       if (cell.src && hit(p.x, 0.6, p.z) !== i) miss.sourceTop++;
+      if (!cell.src && kind(cell.mask) === 'end' && hit(p.x, NOZZLE_Y + 0.06, p.z) !== i) miss.sourceTop++;
       // 每個開口靠近格子邊緣的水管頂端（最容易點到鄰格的位置）
       const mask = curMask(cell);
       let bad = false;
@@ -559,7 +585,7 @@ export class PipeScene {
     }
     const mask = curMask(cell);
     const k = kind(mask);
-    if (k === 'end' && !cell.src && Math.hypot(r, dy) <= 0.24) return true;
+    if (k === 'end' && !cell.src && y <= NOZZLE_Y + 0.08 && y >= PIPE_Y && r <= 0.28) return true;
     if (Math.hypot(r, dy) <= PIPE_R + 0.07) return true;
     if (Math.abs(dy) > PIPE_R + 0.065) return false;
     for (const d of DIRS) {
@@ -723,11 +749,22 @@ export class PipeScene {
       }
     }
     // 只剩漏水的水滴在動時不需要每一幀都畫，隔一幀畫一次（約 30fps）就夠順，手機比較不耗電
-    if (!busy && !this.dirty && this.leaks.length && !this.reduced) {
+    const ambient = this.leaks.length > 0 || this.cells.some((c) => c.jet && c.jet.visible);
+    if (!busy && !this.dirty && ambient && !this.reduced) {
       this.skipDrop = !this.skipDrop;
       if (this.skipDrop) return;
     }
     if (this.drops) busy = this._animateDrops(now) || busy;
+    // 出水口的水柱上下湧動
+    if (!this.reduced) {
+      this.cells.forEach((c, i) => {
+        if (!c.jet || !c.jet.visible) return;
+        const s = 1.5 + 0.4 * Math.sin(now / 170 + i * 1.7);
+        c.jet.scale.y = s;
+        c.jet.position.y = NOZZLE_Y + 0.06 + 0.15 * s * 0.6;
+        busy = true;
+      });
+    }
     if (busy || this.dirty) {
       this.dirty = false;
       this.stats.renders++;
