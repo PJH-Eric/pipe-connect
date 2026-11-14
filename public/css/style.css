@@ -403,8 +403,8 @@ button, a, [role="switch"] { touch-action: manipulation; }
   .level-num { font-size: 22px; }
   .stars-xs { font-size: 13px; }
 }
-@media (min-width: 860px) {
-  .daily-cols { grid-template-columns: minmax(0, 1.25fr) minmax(280px, 1fr); }
+@media (min-width: 700px) {
+  .daily-cols { grid-template-columns: minmax(0, 1.25fr) minmax(260px, 1fr); }
   .pick:not(.daily) .card-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 480px) and (orientation: portrait) {
@@ -430,6 +430,23 @@ button, a, [role="switch"] { touch-action: manipulation; }
   .chip-value { font-size: 15px; }
 }
 @media (max-height: 430px) and (orientation: landscape) {
+  /* 矮螢幕橫向的首頁：標誌縮小、模式卡改成橫排小卡，三個模式與兩顆次要按鈕一頁看完 */
+  .home { gap: 8px; padding-bottom: calc(8px + var(--sab)); }
+  .hero { gap: 12px; }
+  .hero-text { text-align: left; }
+  .hero-text p { margin-top: 2px; font-size: 14px; }
+  .home-modes { gap: 10px; }
+  .home .mode-card { flex-direction: row; text-align: left; padding: 10px 12px; gap: 10px; }
+  .home .mode-card .card-main { align-items: flex-start; }
+  .home .mode-card .card-title { font-size: 18px; }
+  .home .mode-card .card-desc { font-size: 12px; line-height: 1.3; }
+  .home .mode-card .card-status { min-height: 0; align-items: flex-end; font-size: 12px; }
+  .home .mode-ico { width: 44px; height: 44px; font-size: 21px; border-radius: 12px; }
+  .home-more .btn { min-height: 42px; padding: 6px 14px; font-size: 15px; }
+  /* 設定在矮螢幕橫向排成兩欄，不用捲那麼多 */
+  .modal-settings { width: min(100%, 720px); }
+  .modal-settings .set { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 22px; }
+  .modal-settings .modal-foot { padding-top: 6px; padding-bottom: 12px; }
   :root { --top-h: 48px; }
   .icon-btn { width: 40px; height: 40px; }
   .pill-btn { min-height: 40px; }

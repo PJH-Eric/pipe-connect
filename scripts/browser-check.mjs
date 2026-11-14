@@ -303,6 +303,11 @@ for (const [name, vw, vh] of VIEWPORTS) {
     const tag = (s) => `${name}-${lang}-${s}`;
     await settle(page, 900);
     await audit(page, tag('home'));
+    {
+      // 首頁不用捲就要看得到三個模式與兩顆次要按鈕（最小的 320×568 例外，允許捲動）
+      const below = await page.evaluate(() => [...document.querySelectorAll('.home .mode-card, .home-more .btn')].filter((e) => e.getBoundingClientRect().bottom > innerHeight + 1).length);
+      if (below && name !== 'phone-small') note(tag('home') + `：首頁有 ${below} 個入口要捲動才看得到`);
+    }
     await click(page, '.mode-campaign');
     await settle(page);
     await audit(page, tag('levels'));
