@@ -2,7 +2,7 @@
 import { h, icon, Button, IconButton, openModal, hasModal, toast, Stars, fmtTime } from './kit.js';
 import { DIFFS, rateStars, starTimeLimit } from '../core/levels.js';
 import { t } from '../i18n.js';
-import { store, save } from '../storage.js';
+import { store, save, loadGame, saveGame, clearGame } from '../storage.js';
 import { sfx, vibrate } from '../audio.js';
 import { PipeScene } from '../scene.js';
 import { Session } from '../core/session.js';
@@ -32,6 +32,11 @@ export function gameScreen(params, ctx) {
   // 開局 3、2、1 倒數：倒數期間盤面蓋著遮罩不能操作，喊「開始！」才開始計時
   const COUNTDOWN_MS = 3000;
   const cd = { tick: 0, goT: 0, active: false, resumeAfterPause: false };
+  // 闖關與每日挑戰會記住玩到一半的進度；隨機模式每次都是新題，不存
+  const saveKey = params.mode === 'campaign' ? `c:${params.diff}:${params.index}` : params.mode === 'daily' ? `d:${params.dateKey}:${params.diff}` : '';
+  const persist = () => {
+    if (saveKey && session && session.started && !session.done && (session.moves > 0 || session.hintsUsed > 0)) saveGame(saveKey, session.snapshot());
+  };
   const analyticsKey = [params.mode, params.diff, params.index ?? params.dateKey ?? params.seed, Date.now()].join(':');
 
   /* ---------- 版面 ---------- */
@@ -152,7 +157,8 @@ export function gameScreen(params, ctx) {
   function startCountdown() {
     stopCountdown();
     if (window.__PIPE_SKIP_COUNTDOWN__) {
-      session.start();
+      if (session.started) session.resume();
+      else session.start();
       refreshHud();
       return;
     }
@@ -170,7 +176,9 @@ export function gameScreen(params, ctx) {
         cdEl.setAttribute('aria-label', t('cd.go'));
         popNum(t('cd.go'));
         sfx('go');
-        session.start();
+        // 接回來的對局從暫停狀態繼續計時；新局從這一刻開始計時
+        if (session.started) session.resume();
+        else session.start();
         refreshHud();
         cd.goT = setTimeout(() => {
           cd.goT = 0;
@@ -193,9 +201,11 @@ export function gameScreen(params, ctx) {
   }
 
   /* ---------- 開局／重來 ---------- */
-  function begin() {
+  function begin({ fresh = false } = {}) {
     clearTimeout(winTimer);
     session = new Session(makeBoard(params), params);
+    if (fresh) clearGame(saveKey);
+    else if (saveKey && session.restore(loadGame(saveKey))) toast(t('game.resumed'), 'play');
     lastWet = session.flow.wet;
     cursor = -1;
     shownStars = -1;
@@ -217,7 +227,7 @@ export function gameScreen(params, ctx) {
   function restart() {
     if (session.started && !session.done) window.GameAnalytics?.end({ result: 'dnf' });
     sfx('click');
-    begin();
+    begin({ fresh: true });
   }
 
   /** 已經玩了一陣子才按「重來」：先確認，免得誤觸把進度清掉 */
@@ -251,6 +261,7 @@ export function gameScreen(params, ctx) {
     lastWet = session.flow.wet;
     refreshHud();
     if (session.done) win();
+    else persist();
   }
 
   function doTap(i) {
@@ -365,7 +376,7 @@ export function gameScreen(params, ctx) {
       onClose: () => {
         pauseModal = null;
         if (left) return;
-        if (cd.resumeAfterPause && !session.started) startCountdown();
+        if (cd.resumeAfterPause) startCountdown();
         else session.resume();
         cd.resumeAfterPause = false;
       },
@@ -373,6 +384,7 @@ export function gameScreen(params, ctx) {
   }
 
   function onVisibility() {
+    if (document.hidden) persist();
     if (document.hidden && (session.started || cd.active) && !session.done && !hasModal()) openPause();
   }
 
@@ -382,6 +394,7 @@ export function gameScreen(params, ctx) {
     const today = taipeiDateKey();
     const prevBest = params.mode === 'campaign' ? store().progress.camp[params.diff].best[params.index] : null;
     const out = recordResult(store().progress, r, today);
+    delete store().saves[saveKey];
     save();
     scene.celebrate(session.flow.dist);
     scene.setCursor(-1);
@@ -481,6 +494,8 @@ export function gameScreen(params, ctx) {
       left = true;
       clearInterval(tick);
       clearTimeout(winTimer);
+      session?.pause();
+      persist();
       stopCountdown();
       document.removeEventListener('keydown', onKey);
       document.removeEventListener('visibilitychange', onVisibility);

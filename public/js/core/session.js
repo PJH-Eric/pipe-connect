@@ -135,6 +135,54 @@ export class Session {
     return ms / 1000;
   }
 
+  /** 把目前進度存成純資料（中途離開、重新整理後可以接著玩） */
+  snapshot(now = Date.now()) {
+    return {
+      v: 1,
+      n: this.board.cells.length,
+      rots: this.board.cells.map((c) => c.rot),
+      hinted: this.board.cells.flatMap((c, i) => (c.hinted ? [i] : [])),
+      moves: this.moves,
+      hintsUsed: this.hintsUsed,
+      elapsedMs: Math.round(this.seconds(now) * 1000),
+      undo: this.undoStack.slice(-200),
+    };
+  }
+
+  /**
+   * 套用先前存的進度。資料不合（盤面大小不同、被改壞、已經過關）回傳 false 且不動任何東西。
+   * 接回來的對局是暫停狀態，呼叫 resume() 才繼續計時。
+   */
+  restore(snap) {
+    const cells = this.board.cells;
+    const okInt = (x, max) => Number.isInteger(x) && x >= 0 && x <= max;
+    if (!snap || snap.v !== 1 || snap.n !== cells.length || !Array.isArray(snap.rots) || snap.rots.length !== cells.length) return false;
+    if (!snap.rots.every((r) => okInt(r, 3)) || !Array.isArray(snap.hinted) || !snap.hinted.every((i) => okInt(i, cells.length - 1))) return false;
+    if (!okInt(snap.moves, 1e6) || !okInt(snap.hintsUsed, 1e4) || !okInt(snap.elapsedMs, 1e9) || !Array.isArray(snap.undo)) return false;
+    if (HINTS[this.info.diff] !== Infinity && snap.hintsUsed > HINTS[this.info.diff]) return false;
+    // 原本就鎖住的水管不能被存檔轉動
+    if (cells.some((c, i) => c.locked && snap.rots[i] !== 0)) return false;
+    const backup = cells.map((c) => ({ ...c }));
+    cells.forEach((c, i) => (c.rot = snap.rots[i]));
+    snap.hinted.forEach((i) => applyHint(this.board, i));
+    if (flow(this.board).solved) {
+      backup.forEach((c, i) => Object.assign(cells[i], c, { hinted: c.hinted }));
+      cells.forEach((c, i) => {
+        if (!backup[i].hinted) delete c.hinted;
+      });
+      return false;
+    }
+    this.moves = snap.moves;
+    this.hintsUsed = snap.hintsUsed;
+    this.hintsLeft = HINTS[this.info.diff] === Infinity ? Infinity : HINTS[this.info.diff] - snap.hintsUsed;
+    this.undoStack = snap.undo.filter((i) => okInt(i, cells.length - 1) && !cells[i].locked);
+    this.elapsedMs = snap.elapsedMs;
+    this.runningSince = -1;
+    this.started = true;
+    this.flow = flow(this.board);
+    return true;
+  }
+
   /** 過關後的成績 */
   result() {
     const seconds = Math.round(this.seconds() * 10) / 10;

@@ -219,6 +219,25 @@ if (!skipFlow) {
   await page.waitForFunction(() => window.__game?.session && !window.__game.session.done && window.__game.counting);
   await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
   if (!(await page.locator('#top-title').textContent()).includes('2')) note('下一關沒有進到第 2 關');
+  // 玩到一半離開再回來、甚至重新整理，都要接著上次的進度
+  {
+    await page.evaluate(() => {
+      const g = window.__game;
+      const k = g.session.board.cells.findIndex((c) => !c.locked && c.mask !== 15 && c.mask !== 5 && c.mask !== 10);
+      for (let i = 0; i < 3; i++) g.doTap(k);
+    });
+    const rots = await page.evaluate(() => window.__game.session.board.cells.map((c) => c.rot).join(''));
+    await page.goBack();
+    await page.waitForSelector('.levels-continue');
+    await page.reload();
+    await page.waitForSelector('#app[data-ready]');
+    await click(page, '.mode-campaign');
+    await click(page, '.levels-continue');
+    await page.waitForFunction(() => window.__game?.session);
+    const back = await page.evaluate(() => ({ moves: window.__game.session.moves, rots: window.__game.session.board.cells.map((c) => c.rot).join(''), toast: !!document.querySelector('.toast.show') }));
+    if (back.moves !== 3 || back.rots !== rots || !back.toast) note('離開再回來沒有接回進度：' + JSON.stringify(back));
+    await page.waitForFunction(() => !window.__game.counting && !window.__game.session.paused, null, { timeout: 8000 });
+  }
   // 暫停 → 繼續 → 再暫停 → 回選關
   await page.keyboard.press('Escape');
   await page.waitForSelector('.modal-menu');

@@ -32,6 +32,8 @@ function load() {
     lang: typeof raw.lang === 'string' ? raw.lang : '',
     settings,
     last: raw.last && typeof raw.last === 'object' ? raw.last : {},
+    // 玩到一半的對局（key → { t: 存檔時間, s: Session.snapshot() }）
+    saves: raw.saves && typeof raw.saves === 'object' && !Array.isArray(raw.saves) ? raw.saves : {},
     progress: normalizeProgress(raw.progress),
   };
 }
@@ -39,6 +41,29 @@ function load() {
 export function store() {
   if (!data) load();
   return data;
+}
+
+const MAX_SAVES = 12;
+
+/** 讀出某一局的中途進度；沒有回傳 null */
+export function loadGame(key) {
+  return store().saves[key]?.s || null;
+}
+
+/** 存某一局的中途進度（最多留 12 局，舊的先丟） */
+export function saveGame(key, snap, now = Date.now()) {
+  const saves = store().saves;
+  saves[key] = { t: now, s: snap };
+  const keys = Object.keys(saves).sort((a, b) => (saves[b].t || 0) - (saves[a].t || 0));
+  keys.slice(MAX_SAVES).forEach((k) => delete saves[k]);
+  save();
+}
+
+export function clearGame(key) {
+  if (store().saves[key]) {
+    delete store().saves[key];
+    save();
+  }
 }
 
 export function save() {

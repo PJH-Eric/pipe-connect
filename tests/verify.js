@@ -331,6 +331,61 @@ await test('對局：開局倒數結束呼叫 start() 才開始計時，之後�
   assert.equal(ses.seconds(9000), 8, '重複 start 沒有作用');
 });
 
+await test('對局：存檔再接回來，盤面、步數、時間、提示與復原都一致', () => {
+  const info = { mode: 'campaign', diff: 'normal', index: 3 };
+  const a = new Session(campaignBoard('normal', 3), info);
+  a.start(0);
+  const free = a.board.cells.map((c, i) => i).filter((i) => !a.board.cells[i].locked && period(a.board.cells[i].mask) === 4);
+  a.tap(free[0], 1000);
+  a.tap(free[1], 2000);
+  const h = a.hint(3000);
+  a.tap(free[2] === h.i ? free[3] : free[2], 4000);
+  const snap = JSON.parse(JSON.stringify(a.snapshot(5000)));
+  const b = new Session(campaignBoard('normal', 3), info);
+  assert.equal(b.restore(snap), true);
+  assert.deepEqual(b.board.cells, a.board.cells);
+  assert.equal(b.moves, 3);
+  assert.equal(b.hintsUsed, 1);
+  assert.equal(b.hintsLeft, HINTS.normal - 1);
+  assert.equal(b.paused, true, '接回來先暫停，倒數完才繼續計時');
+  assert.equal(b.seconds(99999), 5);
+  b.resume(10000);
+  assert.equal(b.seconds(12000), 7);
+  assert.deepEqual(b.undoStack, a.undoStack);
+  assert.ok(!b.undoStack.includes(h.i));
+  assert.deepEqual([...b.flow.color], [...a.flow.color]);
+  playOut(b, 20000);
+  assert.equal(b.done, true);
+  assert.ok(b.result().stars < 3, '用過提示的紀錄有跟著接回來');
+});
+
+await test('對局：壞掉或不合的存檔一律拒絕，盤面不受影響', () => {
+  const info = { mode: 'campaign', diff: 'easy', index: 0 };
+  const fresh = () => new Session(campaignBoard('easy', 0), info);
+  const good = (() => {
+    const s = fresh();
+    s.start(0);
+    s.tap(s.board.cells.findIndex((c) => !c.locked && period(c.mask) === 4), 10);
+    return s.snapshot(20);
+  })();
+  const bad = [
+    null, {}, { ...good, v: 2 }, { ...good, n: 3 }, { ...good, rots: good.rots.slice(1) },
+    { ...good, rots: good.rots.map(() => 7) }, { ...good, moves: -1 }, { ...good, moves: 1.5 },
+    { ...good, hintsUsed: 99 }, { ...good, hinted: [9999] }, { ...good, undo: 'x' }, { ...good, elapsedMs: NaN },
+    { ...good, rots: good.rots.map(() => 0) }, // 直接改成解答：不能靠改存檔過關
+  ];
+  const lockedAt = campaignBoard('easy', 0).cells.findIndex((c) => c.locked);
+  if (lockedAt >= 0) bad.push({ ...good, rots: good.rots.map((r, i) => (i === lockedAt ? 1 : r)) });
+  for (const snap of bad) {
+    const s = fresh();
+    const before = JSON.stringify(s.board);
+    assert.equal(s.restore(snap), false, JSON.stringify(snap)?.slice(0, 60));
+    assert.equal(JSON.stringify(s.board), before);
+    assert.equal(s.started, false);
+  }
+  assert.equal(fresh().restore(good), true);
+});
+
 await test('對局：暫停期間不計時', () => {
   const ses = new Session(campaignBoard('easy', 1), { mode: 'campaign', diff: 'easy', index: 1 });
   const k = ses.board.cells.findIndex((c) => !c.locked && period(c.mask) > 1);
