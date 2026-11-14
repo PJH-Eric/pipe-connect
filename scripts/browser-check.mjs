@@ -180,6 +180,23 @@ if (!skipFlow) {
     if (!m2.inside || Math.max(m2.fillX, m2.fillY) < 0.8) note('轉回橫向後盤面沒有重新放滿：' + JSON.stringify(m2));
     if ((await page.evaluate(() => window.__game.session.moves)) !== before2) note('轉向後步數變了');
   }
+  // 省電：只有水滴在動時大約隔一幀才重畫；什麼都沒在動時完全不重畫
+  {
+    const sample = () => page.evaluate(async () => {
+      const st = window.__game.scene.stats;
+      const a = { ...st };
+      await new Promise((r) => setTimeout(r, 1200));
+      return { ticks: st.ticks - a.ticks, renders: st.renders - a.renders, leaks: window.__game.scene.leaks.length };
+    });
+    await page.mouse.move(2, 2);
+    await settle(page, 600);
+    const dripping = await sample();
+    if (dripping.leaks && (dripping.renders < 3 || dripping.renders > dripping.ticks * 0.62)) note('只有水滴在動時重畫次數不對：' + JSON.stringify(dripping));
+    await page.evaluate(() => { window.__game.scene.leaks = []; window.__game.scene._savedLeaks = true; });
+    await settle(page, 300);
+    const idle = await sample();
+    if (idle.renders > 1) note('畫面靜止時仍在重畫：' + JSON.stringify(idle));
+  }
   // 視角：沒放大時拖曳是轉視角；放大後拖曳改成平移；視角復位會全部還原
   {
     const drag = async () => {

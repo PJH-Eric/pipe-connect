@@ -94,6 +94,9 @@ export class PipeScene {
     this.cursor = -1;
     this.leaks = [];
     this.celebrateAt = 0;
+    // 省電：ticks 是畫面更新的機會，renders 是真的有重畫的次數（巡檢會看兩者的比例）
+    this.stats = { ticks: 0, renders: 0 };
+    this.skipDrop = false;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -669,6 +672,7 @@ export class PipeScene {
 
   _frame(now) {
     if (this.lost) return;
+    this.stats.ticks++;
     let busy = false;
     for (const c of this.cells) {
       if (c.turnT0 >= 0) {
@@ -718,9 +722,15 @@ export class PipeScene {
         }
       }
     }
+    // 只剩漏水的水滴在動時不需要每一幀都畫，隔一幀畫一次（約 30fps）就夠順，手機比較不耗電
+    if (!busy && !this.dirty && this.leaks.length && !this.reduced) {
+      this.skipDrop = !this.skipDrop;
+      if (this.skipDrop) return;
+    }
     if (this.drops) busy = this._animateDrops(now) || busy;
     if (busy || this.dirty) {
       this.dirty = false;
+      this.stats.renders++;
       this.renderer.render(this.scene, this.camera);
     }
   }
