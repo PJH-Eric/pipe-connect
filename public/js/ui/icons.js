@@ -40,48 +40,86 @@ export const ICONS = {
 const N = 1, E = 2, S = 4, W = 8;
 const END = { [N]: [50, 0], [E]: [100, 50], [S]: [50, 100], [W]: [0, 50] };
 
+// 顏色加亮／加深（給管子做出圓柱的明暗）
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (v) => Math.round(f >= 0 ? v + (255 - v) * f : v * (1 + f));
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(ch);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
+let svgSeq = 0;
+
 /**
- * 一節水管的 2D 示意圖（說明頁、首頁標誌用）。
- * @param mask 開口；opts：{ color 水的顏色或 null, locked, src }
+ * 一節水管的 2D 示意圖（說明頁、首頁標誌用），造型跟 3D 盤面一致：
+ * 倒邊陶瓷磚、圓弧彎管、金屬漸層管身、接頭凸緣與束環；水龍頭有黃銅手輪、出水接頭與白色箭頭。
+ * @param mask 開口；opts：{ color 水的顏色或 null（沒水＝銀灰金屬）, locked, src }
  */
 export function pipeSvg(mask, { color = null, locked = false, src = false, size = 64 } = {}) {
-  const pipe = color || '#9aa7b4';
-  const edge = color ? 'rgba(0,0,0,.28)' : '#6f7c88';
-  let arms = '';
-  let flanges = '';
-  for (const bit of [N, E, S, W]) {
-    if (!(mask & bit)) continue;
-    const [x, y] = END[bit];
-    arms += `M50 50L${x} ${y}`;
-    const fx = 50 + (x - 50) * 0.86, fy = 50 + (y - 50) * 0.86;
-    flanges += x === 50 ? `<rect x="33" y="${fy - 5}" width="34" height="10" rx="3"/>` : `<rect x="${fx - 5}" y="33" width="10" height="34" rx="3"/>`;
+  const id = 'p' + ++svgSeq;
+  const base = color || '#a9b6c2';
+  const dark = shade(base, -0.45), mid = shade(base, -0.12), light = shade(base, 0.45);
+  const open = [N, E, S, W].filter((b) => mask & b);
+  const k = open.length;
+  const isElbow = k === 2 && !(mask === (N | S) || mask === (E | W));
+  const vec = (bit) => [(END[bit][0] - 50) / 50, (END[bit][1] - 50) / 50];
+
+  // 管身路徑：彎管走圓弧，其餘從中心往各開口
+  let path = '';
+  if (isElbow && !src) {
+    const [a, b] = open.map(vec);
+    path = `M${50 + a[0] * 50} ${50 + a[1] * 50}L${50 + a[0] * 27} ${50 + a[1] * 27}Q50 50 ${50 + b[0] * 27} ${50 + b[1] * 27}L${50 + b[0] * 50} ${50 + b[1] * 50}`;
+  } else {
+    path = open.map((bit) => `M50 50L${END[bit][0]} ${END[bit][1]}`).join('');
   }
-  let spouts = '';
+  const tube = `<path d="${path}" stroke="${dark}" stroke-width="30" fill="none" stroke-linejoin="round"/>
+<path d="${path}" stroke="${mid}" stroke-width="25" fill="none" stroke-linejoin="round"/>
+<path d="${path}" stroke="${base}" stroke-width="17" fill="none" stroke-linejoin="round"/>
+<path d="${path}" stroke="${light}" stroke-width="6" fill="none" stroke-linejoin="round" opacity=".8" transform="translate(-3.500 -3.500)"/>`;
+
+  // 接頭：靠邊一圈凸緣、往內一圈細束環
+  const ring = (bit, at, half, thick, fill) => {
+    const [ux, uy] = vec(bit);
+    const cx = 50 + ux * at, cy = 50 + uy * at;
+    return ux === 0
+      ? `<rect x="${50 - half}" y="${cy - thick / 2}" width="${half * 2}" height="${thick}" rx="2.500" fill="${fill}" stroke="${dark}" stroke-width="1.500"/>`
+      : `<rect x="${cx - thick / 2}" y="${50 - half}" width="${thick}" height="${half * 2}" rx="2.500" fill="${fill}" stroke="${dark}" stroke-width="1.500"/>`;
+  };
+  const brass = `url(#${id}b)`;
+  let rings = open.map((bit) => ring(bit, 44, 18, 9, src ? brass : mid) + (src ? '' : ring(bit, 34, 15.500, 5, base))).join('');
+
+  // 中心：水龍頭、端點的圓蓋、三通／十字的球形接頭
+  let hub = '';
   if (src) {
-    for (const bit of [N, E, S, W]) {
-      if (!(mask & bit)) continue;
-      const [x, y] = END[bit];
-      const ux = (x - 50) / 50, uy = (y - 50) / 50;
-      const cx = 50 + ux * 40, cy = 50 + uy * 40;
-      spouts += ux === 0 ? `<rect x="31" y="${cy - 7}" width="38" height="14" rx="4" fill="#f2b53a" stroke="#8a5a00" stroke-width="2.500"/>` : `<rect x="${cx - 7}" y="31" width="14" height="38" rx="4" fill="#f2b53a" stroke="#8a5a00" stroke-width="2.500"/>`;
-      const tx = 50 + ux * 47, ty = 50 + uy * 47, bx = 50 + ux * 36, by = 50 + uy * 36;
-      spouts += `<path d="M${tx} ${ty}L${bx - uy * 7} ${by + ux * 7}L${bx + uy * 7} ${by - ux * 7}Z" fill="#fff"/>`;
-    }
+    const arrows = open.map((bit) => {
+      const [ux, uy] = vec(bit);
+      const tx = 50 + ux * 47, ty = 50 + uy * 47, bx = 50 + ux * 35, by = 50 + uy * 35;
+      return `<path d="M${tx} ${ty}L${bx - uy * 7.500} ${by + ux * 7.500}L${bx + uy * 7.500} ${by - ux * 7.500}Z" fill="#fff" stroke="${dark}" stroke-width="1.500" stroke-linejoin="round"/>`;
+    }).join('');
+    hub = `<circle cx="50" cy="50" r="28" fill="url(#${id}r)" stroke="${dark}" stroke-width="3"/>
+<circle cx="50" cy="50" r="16" fill="none" stroke="#8a5a00" stroke-width="7"/><circle cx="50" cy="50" r="16" fill="none" stroke="${brass}" stroke-width="4.500"/>
+<path d="M50 34V66M34 50H66" stroke="#8a5a00" stroke-width="5.500" stroke-linecap="round"/><path d="M50 34V66M34 50H66" stroke="#ffd36b" stroke-width="3" stroke-linecap="round"/>
+<circle cx="50" cy="50" r="5" fill="#ffd36b" stroke="#8a5a00" stroke-width="2"/>${arrows}`;
+  } else if (k === 1) {
+    hub = `<circle cx="50" cy="50" r="20" fill="url(#${id}r)" stroke="${dark}" stroke-width="3"/><circle cx="50" cy="50" r="9" fill="${mid}" stroke="${dark}" stroke-width="2"/><circle cx="44" cy="43" r="4" fill="#fff" opacity=".6"/>`;
+  } else if (k >= 3) {
+    hub = `<circle cx="50" cy="50" r="17" fill="url(#${id}r)" stroke="${dark}" stroke-width="2.500"/><circle cx="45" cy="44" r="4" fill="#fff" opacity=".55"/>`;
   }
-  const count = [N, E, S, W].filter((b) => mask & b).length;
-  const hub = src
-    ? // 水龍頭：圓形水塔＋黃銅手輪；出水口有黃銅接頭和往外的白色箭頭
-      `${spouts}<circle cx="50" cy="50" r="27" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="50" cy="50" r="15" fill="none" stroke="#f2b53a" stroke-width="5"/><path d="M50 35V65M35 50H65" stroke="#f2b53a" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="50" r="5" fill="#fff"/>`
-    : count === 1
-      ? `<circle cx="50" cy="50" r="19" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="44" cy="44" r="5" fill="#fff" opacity=".55"/>`
-      : '';
-  const rivets = locked ? [[14, 14], [86, 14], [14, 86], [86, 86]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#4a423b"/>`).join('') : '';
+
+  const rivets = locked
+    ? [[15, 15], [85, 15], [15, 85], [85, 85]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#c9ced4" stroke="#3d3833" stroke-width="1.500"/><circle cx="${x - 1.500}" cy="${y - 1.500}" r="1.600" fill="#fff"/>`).join('')
+    : '';
+  const tileTop = locked ? '#857b71' : '#f4f8fb', tileBot = locked ? '#5f574f' : '#d4dee7';
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
-<rect x="3" y="3" width="94" height="94" rx="12" fill="${locked ? '#8a8076' : '#e4ecf2'}" stroke="#1d3147" stroke-width="3"/>
-<path d="${arms}" stroke="${edge}" stroke-width="30" stroke-linecap="butt" fill="none"/>
-<path d="${arms}" stroke="${pipe}" stroke-width="22" stroke-linecap="round" fill="none"/>
-<path d="${arms}" stroke="#fff" stroke-width="5" stroke-linecap="round" fill="none" opacity=".35" transform="translate(-4 -4)"/>
-<g fill="${edge}">${flanges}</g>${hub}${rivets}</svg>`;
+<defs>
+<linearGradient id="${id}t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${tileTop}"/><stop offset="1" stop-color="${tileBot}"/></linearGradient>
+<radialGradient id="${id}r" cx=".38" cy=".35" r=".75"><stop offset="0" stop-color="${light}"/><stop offset=".55" stop-color="${base}"/><stop offset="1" stop-color="${mid}"/></radialGradient>
+<linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset=".5" stop-color="#f2b53a"/><stop offset="1" stop-color="#b9801a"/></linearGradient>
+</defs>
+<rect x="2.500" y="2.500" width="95" height="95" rx="14" fill="#0c1c2e"/>
+<rect x="4" y="4" width="92" height="92" rx="12" fill="url(#${id}t)"/>
+<rect x="5.500" y="5.500" width="89" height="89" rx="11" fill="none" stroke="#fff" stroke-opacity="${locked ? 0.18 : 0.7}" stroke-width="1.500"/>
+${rivets}${tube}${rings}${hub}</svg>`;
 }
 
 /** 首頁標誌：一排接通的水管 */

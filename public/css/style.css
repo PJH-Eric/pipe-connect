@@ -233,7 +233,7 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .help-sec h2 { font-size: 19px; margin-bottom: 6px; }
 .help-sec p { color: var(--mute); line-height: 1.65; font-size: 15px; }
 .help-figs { display: flex; gap: 2px; flex-wrap: wrap; flex: none; max-width: 100%; }
-.help-fig svg { display: block; width: clamp(48px, 11vw, 72px); height: auto; }
+.help-fig svg { display: block; width: clamp(56px, 16vw, 76px); height: auto; }
 .help-keys { display: flex; flex-wrap: wrap; gap: 6px; max-width: 250px; }
 .key { font: inherit; font-weight: 800; font-size: 14px; padding: 6px 10px; border-radius: 9px; background: #0c1c2e; border: 2px solid var(--line); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); white-space: nowrap; }
 
