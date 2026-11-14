@@ -219,7 +219,9 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .cal-dow { text-align: center; font-size: 12px; color: var(--mute); font-weight: 700; padding-bottom: 2px; }
 .cal-day { aspect-ratio: 1; max-height: 58px; border-radius: 10px; background: rgba(8, 24, 40, .55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-weight: 700; font-size: 14px; border: 2px solid transparent; }
 .cal-day.is-today { border-color: var(--gold); }
-.cal-day.is-future { opacity: .35; }
+/* 還沒到的日子用暗色字而不是整格變透明，對比才夠 */
+.cal-day.is-future { color: var(--dim); background: var(--dim-bg); }
+.cal-day.is-future .cal-dots { visibility: hidden; }
 .cal-day.is-full { background: #1d4d5c; }
 .cal-dots { display: flex; gap: 2px; }
 .cal-dots i { width: 5px; height: 5px; border-radius: 50%; background: #2b445e; }

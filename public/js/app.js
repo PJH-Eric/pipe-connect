@@ -63,6 +63,7 @@ function paintTopbar() {
   btnPause.hidden = current.name !== 'game';
   topTitle.textContent = current.api.title?.() || '';
   btnLobby.querySelector('.pill-text').textContent = t('top.lobby');
+  $('overlays').setAttribute('aria-label', t('top.popups'));
   for (const [btn, key] of [[btnBack, 'top.back'], [btnPause, 'top.pause'], [btnLang, 'top.lang'], [btnSettings, 'top.settings']]) {
     btn.setAttribute('aria-label', t(key));
     btn.title = t(key);

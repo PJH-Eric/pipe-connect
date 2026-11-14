@@ -11,6 +11,7 @@ const zhHant = {
   'top.pause': '暫停',
   'top.lang': '語言',
   'top.settings': '設定',
+  'top.popups': '彈出內容',
 
   'home.modes': '遊戲模式',
   'home.campaign': '闖關',
@@ -211,6 +212,7 @@ const zhHans = {
   'top.pause': '暂停',
   'top.lang': '语言',
   'top.settings': '设置',
+  'top.popups': '弹出内容',
 
   'home.modes': '游戏模式',
   'home.campaign': '闯关',
@@ -411,6 +413,7 @@ const en = {
   'top.pause': 'Pause',
   'top.lang': 'Language',
   'top.settings': 'Settings',
+  'top.popups': 'Pop-ups',
 
   'home.modes': 'Game modes',
   'home.campaign': 'Levels',

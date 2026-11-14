@@ -206,14 +206,14 @@ export function dailyScreen(params, ctx) {
       h('b', null, fmtDate(first, { year: 'numeric', month: 'long' })),
       IconButton({ ico: 'next', label: t('daily.nextMonth'), attrs: { disabled: month >= today.slice(0, 7) ? '' : null }, onClick: () => { month = shiftDateKey(first, 32).slice(0, 7); paintCal(); } }),
     );
-    const grid = h('div', { class: 'cal-grid', role: 'grid' });
-    for (let i = 0; i < 7; i++) grid.append(h('span', { class: 'cal-dow' }, fmtDate(shiftDateKey('2026-11-01', i), { weekday: 'narrow' })));
-    for (let i = 0; i < startDow; i++) grid.append(h('span', { class: 'cal-pad' }));
+    const grid = h('div', { class: 'cal-grid', role: 'list', 'aria-label': fmtDate(first, { year: 'numeric', month: 'long' }) });
+    for (let i = 0; i < 7; i++) grid.append(h('span', { class: 'cal-dow', 'aria-hidden': 'true' }, fmtDate(shiftDateKey('2026-11-01', i), { weekday: 'narrow' })));
+    for (let i = 0; i < startDow; i++) grid.append(h('span', { class: 'cal-pad', 'aria-hidden': 'true' }));
     for (let d = 1; d <= days; d++) {
       const key = `${month}-${String(d).padStart(2, '0')}`;
       const n = dailyDoneCount(p, key);
-      grid.append(h('span', { class: `cal-day ${key === today ? 'is-today' : ''} ${n ? 'has-done' : ''} ${n >= 5 ? 'is-full' : ''} ${key > today ? 'is-future' : ''}`, 'aria-label': t('daily.dayAria', { date: fmtDate(key, { month: 'long', day: 'numeric' }), n }) },
-        h('span', { class: 'cal-num' }, String(d)),
+      grid.append(h('span', { class: `cal-day ${key === today ? 'is-today' : ''} ${n ? 'has-done' : ''} ${n >= 5 ? 'is-full' : ''} ${key > today ? 'is-future' : ''}`, role: 'listitem', 'aria-label': t('daily.dayAria', { date: fmtDate(key, { month: 'long', day: 'numeric' }), n }) },
+        h('span', { class: 'cal-num', 'aria-hidden': 'true' }, String(d)),
         h('span', { class: 'cal-dots', 'aria-hidden': 'true' }, DIFFS.map((x) => h('i', { class: p.daily[key]?.[x] ? 'on diff-' + x : '' }))),
       ));
     }

@@ -460,6 +460,69 @@ for (const [name, vw, vh] of VIEWPORTS) {
   }
 }
 
+/* ---------- 2b. 無障礙掃描（axe-core；設定 AXE_PATH 指到 axe.min.js 才會跑）---------- */
+if (process.env.AXE_PATH && !skipFlow) {
+  console.log('無障礙掃描');
+  const axeSource = fs.readFileSync(process.env.AXE_PATH, 'utf8');
+  const { context, page } = await open(1180, 820, 'zh-Hant', seeded);
+  const scan = async (label) => {
+    await page.evaluate(axeSource);
+    const found = await page.evaluate(async () => {
+      // 只掃目前最上層看得到的東西；canvas 是 3D 畫面，另外用鍵盤與朗讀區提供替代操作
+      const top = document.querySelector('.result-share-dialog-layer:not([hidden])') || document.querySelector('#overlays .modal-backdrop:last-of-type') || document.body;
+      const r = await window.axe.run(top, { resultTypes: ['violations'] });
+      return r.violations.map((v) => `${v.id}（${v.impact}）×${v.nodes.length}：${v.nodes[0].target.join(' ')}`);
+    });
+    found.forEach((f) => note(`無障礙 ${label}：${f}`));
+  };
+  await settle(page, 900);
+  await scan('首頁');
+  await click(page, '.mode-campaign');
+  await settle(page);
+  await scan('選關');
+  await click(page, '.levels-continue');
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await settle(page, 900);
+  await scan('遊戲');
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal-menu');
+  await scan('暫停');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const g = window.__game;
+    for (let i = 0; i < 600 && !g.session.done; i++) {
+      const k = g.session.board.cells.findIndex((c) => !c.locked && c.rot % (c.mask === 15 ? 1 : c.mask === 5 || c.mask === 10 ? 2 : 4) !== 0);
+      if (k < 0) break;
+      g.doTap(k);
+    }
+  });
+  await page.waitForSelector('.modal-result', { timeout: 6000 });
+  await settle(page, 900);
+  await scan('結算');
+  await page.locator('.modal-result .modal-foot .btn').last().click();
+  await page.waitForSelector('.home');
+  for (const [sel, label] of [['.mode-daily', '每日挑戰'], ['.mode-random', '隨機']]) {
+    await click(page, sel);
+    await settle(page);
+    await scan(label);
+    await page.goBack();
+  }
+  for (const [n, label] of [[0, '玩法說明'], [1, '成就與統計']]) {
+    await page.locator('.home-more .btn').nth(n).click();
+    await settle(page);
+    await scan(label);
+    await page.goBack();
+  }
+  await click(page, '#btn-settings');
+  await settle(page);
+  await scan('設定');
+  await page.keyboard.press('Escape');
+  await click(page, '#btn-lang');
+  await settle(page, 200);
+  await scan('語言選單');
+  await context.close();
+}
+
 /* ---------- 3. 加長文字：每段英文再加長四成，模擬更長的語言，最容易破版的三種尺寸都要撐得住 ---------- */
 console.log('加長文字檢查');
 for (const [name, vw, vh] of VIEWPORTS) {
