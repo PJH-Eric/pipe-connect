@@ -159,6 +159,9 @@ const zhHant = {
   'kind.tee': '三通',
   'kind.cross': '十字',
 
+  'confirm.restart': '重新開始這一局？',
+  'confirm.body': '已經轉了 {n} 下，重來的話步數與時間都會歸零。',
+  'confirm.keep': '繼續玩',
   'pause.title': '暫停',
   'pause.resume': '繼續',
   'pause.restart': '重新開始',
@@ -355,6 +358,9 @@ const zhHans = {
   'kind.tee': '三通',
   'kind.cross': '十字',
 
+  'confirm.restart': '重新开始这一局？',
+  'confirm.body': '已经转了 {n} 下，重来的话步数与时间都会归零。',
+  'confirm.keep': '继续玩',
   'pause.title': '暂停',
   'pause.resume': '继续',
   'pause.restart': '重新开始',
@@ -551,6 +557,9 @@ const en = {
   'kind.tee': 'tee',
   'kind.cross': 'cross',
 
+  'confirm.restart': 'Restart this board?',
+  'confirm.body': 'You have made {n} turns. Restarting resets your moves and time.',
+  'confirm.keep': 'Keep playing',
   'pause.title': 'Paused',
   'pause.resume': 'Resume',
   'pause.restart': 'Restart',

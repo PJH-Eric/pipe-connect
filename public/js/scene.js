@@ -346,6 +346,14 @@ export class PipeScene {
     this.dirty = true;
   }
 
+  /** 提示轉正的那一節跳一下，讓玩家看到是哪一節 */
+  pulse(i) {
+    const c = this.cells[i];
+    if (!c || this.reduced) return;
+    c.bounceT0 = performance.now() + 120;
+    this.dirty = true;
+  }
+
   /** 過關慶祝：水管依離水源的距離像波浪一樣彈起來 */
   celebrate(dist) {
     if (this.reduced) return;

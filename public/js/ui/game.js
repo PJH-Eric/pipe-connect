@@ -53,7 +53,7 @@ export function gameScreen(params, ctx) {
 
   const btnUndo = Button({ ico: 'undo', label: '', onClick: () => doUndo() });
   const btnHint = Button({ ico: 'hint', label: '', badge: '', onClick: () => doHint() });
-  const btnRestart = Button({ ico: 'restart', label: '', onClick: () => restart() });
+  const btnRestart = Button({ ico: 'restart', label: '', onClick: () => askRestart() });
   const bar = h('div', { class: 'bar' }, btnUndo, btnHint, btnRestart);
 
   const stageHost = h('div', { class: 'stage-host' });
@@ -220,6 +220,30 @@ export function gameScreen(params, ctx) {
     begin();
   }
 
+  /** 已經玩了一陣子才按「重來」：先確認，免得誤觸把進度清掉 */
+  function askRestart() {
+    if (cd.active || hasModal()) return;
+    if (session.done || session.moves < 5) return restart();
+    session.pause();
+    sfx('click');
+    let confirmed = false;
+    const modal = openModal({
+      title: t('confirm.restart'),
+      cls: 'modal-confirm',
+      closeLabel: t('confirm.keep'),
+      body: h('p', { class: 'confirm-text' }, t('confirm.body', { n: session.moves })),
+      actions: [
+        Button({ ico: 'play', label: t('confirm.keep'), variant: 'primary', onClick: () => modal.close() }),
+        Button({ ico: 'restart', label: t('pause.restart'), attrs: { 'data-act': 'confirm-restart' }, onClick: () => { confirmed = true; modal.close(); } }),
+      ],
+      onClose: () => {
+        if (left) return;
+        if (confirmed) restart();
+        else session.resume();
+      },
+    });
+  }
+
   /* ---------- 操作 ---------- */
   function afterChange() {
     scene.applyFlow(session.flow);
@@ -265,6 +289,7 @@ export function gameScreen(params, ctx) {
     const r = session.hint();
     if (r === -1) return;
     scene.setRot(r.i, 0);
+    scene.pulse(r.i);
     sfx('hint');
     setCursor(r.i);
     afterChange();

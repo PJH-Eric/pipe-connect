@@ -336,6 +336,7 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .modal-result .modal-foot { flex-direction: column; flex-wrap: nowrap; }
 .modal-result .modal-foot .btn { flex: none; }
 .menu-col { display: grid; gap: 10px; }
+.confirm-text { color: var(--mute); line-height: 1.6; font-size: 16px; }
 .res { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .res-level { color: var(--mute); font-weight: 700; }
 .res .stars .on { animation: star-in .45s both; }

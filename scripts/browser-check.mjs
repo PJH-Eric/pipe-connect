@@ -265,6 +265,25 @@ if (!skipFlow) {
   await click(page, '.mode-random');
   await page.locator('.diff-card').nth(1).click();
   await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  // 重來的確認：轉了 5 下以上按「重來」要先問；取消後進度與計時照舊，確定才歸零
+  {
+    await page.evaluate(() => {
+      const g = window.__game;
+      const k = g.session.board.cells.findIndex((c) => !c.locked && c.mask !== 15);
+      for (let i = 0; i < 8; i++) g.doTap(k);
+    });
+    await page.locator('.bar .btn').nth(2).click();
+    await page.waitForSelector('.modal-confirm');
+    await audit(page, 'flow-confirm');
+    if (!(await page.evaluate(() => window.__game.session.paused))) note('確認重來時計時沒有暫停');
+    await page.keyboard.press('Escape');
+    const kept = await page.evaluate(() => ({ moves: window.__game.session.moves, paused: window.__game.session.paused }));
+    if (kept.moves !== 8 || kept.paused) note('取消重來後進度或計時不對：' + JSON.stringify(kept));
+    await page.locator('.bar .btn').nth(2).click();
+    await page.locator('[data-act="confirm-restart"]').click();
+    await page.waitForFunction(() => window.__game.session.moves === 0 && window.__game.counting);
+    await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  }
   // 即時星星：開局三顆，用了提示就少一顆；點鎖住的水管會晃動且不算步數
   const starsOn = () => page.locator('.hud-stars .ico.on').count();
   if ((await starsOn()) !== 3) note('開局的即時星星應該是三顆');
