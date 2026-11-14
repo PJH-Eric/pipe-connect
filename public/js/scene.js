@@ -220,7 +220,9 @@ export class PipeScene {
       tankRim: new THREE.CylinderGeometry(0.35, 0.35, 0.07, 24, 1),
       tile: slab(0.95, 0.95, 0.07, 0.12, 0.06, 0.018),
       rivet: new THREE.CylinderGeometry(0.05, 0.058, 0.035, 12, 1),
-      drop: new THREE.SphereGeometry(0.06, 10, 8),
+      drop: new THREE.SphereGeometry(0.075, 12, 10),
+      // 漏水處的一灘水：躺平的圓片
+      puddle: new THREE.CircleGeometry(0.24, 28).rotateX(-HALF_PI),
       arrow: new THREE.ConeGeometry(0.13, 0.26, 4),
       // 水源頂上的形狀：顏色之外再用形狀區分（球／方塊／三角錐／八面體）
       marks: [
@@ -395,6 +397,11 @@ export class PipeScene {
     this.drops = add(new THREE.InstancedMesh(this.base.drop, mat({ color: 0xffffff, roughness: 0.15 }), 96));
     this.drops.count = 0;
     this.drops.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(96 * 3), 3);
+    // 漏水的開口下方一灘水（半透明、跟著漏出來的水變色，會微微擴散），比水滴醒目
+    this.puddles = add(new THREE.InstancedMesh(this.base.puddle, mat({ color: 0xffffff, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.85, depthWrite: false }), 48));
+    this.puddles.count = 0;
+    this.puddles.renderOrder = 1;
+    this.puddles.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(48 * 3), 3);
 
     // 水管
     const brass = mat({ color: 0xf2b53a, metalness: 0.85, roughness: 0.22, emissive: 0x3a2500, emissiveIntensity: 0.2, envMapIntensity: 1.2 });
@@ -1038,6 +1045,24 @@ export class PipeScene {
     this.drops.count = k;
     this.drops.instanceMatrix.needsUpdate = true;
     if (this.drops.instanceColor) this.drops.instanceColor.needsUpdate = true;
+    // 水灘：放在開口外側、兩塊地磚的交界上，壓扁成橢圓順著漏水方向
+    let n = 0;
+    for (const leak of list) {
+      if (n >= 48) break;
+      const p = this._cellPos(leak.i);
+      const { dx, dy } = DIRS[leak.d];
+      const code = this.cells[leak.i].colorCode;
+      col.setHex(code < 0 ? MIXED_COLOR : WATER_COLORS[code]);
+      const grow = this.reduced ? 1 : 0.92 + 0.1 * Math.sin(now / 380 + leak.i);
+      const along = 1.25 * grow, across = 0.95 * grow;
+      m4.makeScale(dx ? along : across, 1, dy ? along : across).setPosition(p.x + dx * 0.5, 0.064, p.z + dy * 0.5);
+      this.puddles.setMatrixAt(n, m4);
+      this.puddles.setColorAt(n, col.multiplyScalar(0.82));
+      n++;
+    }
+    this.puddles.count = n;
+    this.puddles.instanceMatrix.needsUpdate = true;
+    if (this.puddles.instanceColor) this.puddles.instanceColor.needsUpdate = true;
     return k > 0 && !this.reduced;
   }
 
@@ -1048,8 +1073,8 @@ export class PipeScene {
     this.disposables = [];
     this.geoCache.forEach((g) => g.dispose());
     this.geoCache.clear();
-    [this.tiles, this.rivets, this.drops].forEach((m) => m?.dispose?.());
-    this.tiles = this.rivets = this.drops = this.cursorMesh = null;
+    [this.tiles, this.rivets, this.drops, this.puddles].forEach((m) => m?.dispose?.());
+    this.tiles = this.rivets = this.drops = this.puddles = this.cursorMesh = null;
     this.cells = [];
     this.leaks = [];
     this.cursor = -1;
