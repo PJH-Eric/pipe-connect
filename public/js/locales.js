@@ -200,6 +200,8 @@ const zhHant = {
   'set.vibrate.desc': '轉水管與過關時震動（支援的裝置）',
   'set.reduce': '減少動態',
   'set.reduce.desc': '關掉旋轉、水流與慶祝動畫',
+  'set.quality': '高畫質',
+  'set.quality.desc': '金屬反光與陰影。裝置跑不順時會自動關閉',
   'set.reset': '恢復預設',
   'set.done': '完成',
 };
@@ -403,6 +405,8 @@ const zhHans = {
   'set.vibrate.desc': '转水管与过关时震动（支持的设备）',
   'set.reduce': '减少动态',
   'set.reduce.desc': '关掉旋转、水流与庆祝动画',
+  'set.quality': '高画质',
+  'set.quality.desc': '金属反光与阴影。设备跑不顺时会自动关闭',
   'set.reset': '恢复默认',
   'set.done': '完成',
 };
@@ -606,6 +610,8 @@ const en = {
   'set.vibrate.desc': 'Buzz on turns and clears (where supported)',
   'set.reduce': 'Reduce motion',
   'set.reduce.desc': 'Turn off turning, flow and celebration animations',
+  'set.quality': 'High quality',
+  'set.quality.desc': 'Metal reflections and shadows. Turns off by itself on slow devices',
   'set.reset': 'Reset to defaults',
   'set.done': 'Done',
 };

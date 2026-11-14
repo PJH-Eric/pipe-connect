@@ -2,7 +2,7 @@
 import { normalizeProgress } from './core/progress.js';
 
 const KEY = 'pipe-connect.v1';
-export const DEFAULT_SETTINGS = { music: true, musicVol: 0.5, sfx: true, sfxVol: 0.8, vibrate: true, reduceMotion: false };
+export const DEFAULT_SETTINGS = { music: true, musicVol: 0.5, sfx: true, sfxVol: 0.8, vibrate: true, reduceMotion: false, hiQuality: true };
 
 let data = null;
 

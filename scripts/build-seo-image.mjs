@@ -24,6 +24,7 @@ const page = await browser.newPage({ viewport: { width: 1200, height: 630 }, dev
 await page.addInitScript(() => {
   window.__PIPE_TEST__ = true;
   window.__PIPE_SKIP_COUNTDOWN__ = true;
+  window.__PIPE_KEEP_QUALITY__ = true;
   localStorage.setItem('pipe-connect.v1', JSON.stringify({ settings: { music: false, sfx: false } }));
 });
 await page.goto(`http://localhost:${server.address().port}/`);
@@ -46,7 +47,6 @@ await page.evaluate(() => {
   document.querySelector('.game-side').style.visibility = 'hidden';
   document.querySelector('.topbar').style.visibility = 'hidden';
   document.querySelector('.zoom').hidden = true;
-  document.querySelector('.stage-tip').hidden = true;
   document.querySelector('.game').style.gridTemplate = '"side stage" minmax(0, 1fr) / 430px minmax(0, 1fr)';
   const el = document.createElement('div');
   el.style.cssText = 'position:fixed;left:56px;top:0;bottom:0;width:400px;display:flex;flex-direction:column;justify-content:center;gap:18px;z-index:99;color:#eef6ff';
@@ -54,7 +54,7 @@ await page.evaluate(() => {
   document.body.append(el);
   window.dispatchEvent(new Event('resize'));
 });
-await page.waitForTimeout(1200);
+await page.waitForTimeout(6000);
 const png = await page.screenshot();
 await browser.close();
 server.close();

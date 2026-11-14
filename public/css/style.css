@@ -77,8 +77,8 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .top-title { font-weight: 800; font-size: clamp(15px, 2.4vw, 19px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .icon-btn {
   width: 44px; height: 44px; flex: none; display: inline-grid; place-items: center; cursor: pointer;
-  border: 2px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink); font-size: 18px;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, .28); transition: transform .08s, background .15s;
+  border: 2px solid var(--line); border-radius: 14px; background: linear-gradient(180deg, #1f4161, var(--panel) 70%); color: var(--ink); font-size: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 3px 0 rgba(0, 0, 0, .28); transition: transform .08s, background .15s;
 }
 .icon-btn:hover { background: var(--panel2); }
 .icon-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 rgba(0, 0, 0, .28); }
@@ -95,13 +95,13 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .btn {
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;
   min-height: 46px; padding: 8px 16px; border-radius: 14px; border: 2px solid var(--line);
-  background: var(--panel2); color: var(--ink); font-weight: 800; font-size: 16px; line-height: 1.2;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, .3); transition: transform .08s, box-shadow .08s, filter .15s;
+  background: linear-gradient(180deg, #2a5680, var(--panel2) 60%); color: var(--ink); font-weight: 800; font-size: 16px; line-height: 1.2;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 4px 0 rgba(0, 0, 0, .3); transition: transform .08s, box-shadow .08s, filter .15s;
 }
 .btn:hover { filter: brightness(1.12); }
 .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, .3); }
 .btn:disabled { opacity: .42; cursor: default; filter: none; transform: none; box-shadow: 0 4px 0 rgba(0, 0, 0, .3); }
-.btn-primary { background: var(--accent); border-color: #8ff0fb; color: var(--accent-ink); box-shadow: 0 4px 0 var(--accent-deep); }
+.btn-primary { background: linear-gradient(180deg, #6ae6f4, var(--accent) 55%); border-color: #8ff0fb; color: var(--accent-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 4px 0 var(--accent-deep); }
 .btn-primary:active { box-shadow: 0 1px 0 var(--accent-deep); }
 .btn-lg { min-height: 54px; font-size: 17px; padding: 10px 20px; }
 .btn-label { min-width: 0; }
@@ -136,8 +136,8 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .page-lead { color: var(--mute); font-size: 15px; line-height: 1.6; }
 .card {
   display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; cursor: pointer;
-  padding: 14px 16px; border-radius: var(--r); border: 2px solid var(--line); background: var(--panel);
-  box-shadow: 0 5px 0 rgba(0, 0, 0, .3); transition: transform .08s, box-shadow .08s, background .15s;
+  padding: 14px 16px; border-radius: var(--r); border: 2px solid var(--line); background: linear-gradient(180deg, #1d3d5c, var(--panel) 65%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 5px 0 rgba(0, 0, 0, .3); transition: transform .08s, box-shadow .08s, background .15s;
 }
 .card:hover { background: var(--panel2); }
 .card:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); }
@@ -270,15 +270,17 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .hud-label { display: none; font-weight: 800; }
 .hud-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .hud-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.chip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 12px; background: var(--panel); border: 2px solid var(--line); min-width: 0; }
-.chip > .ico { color: var(--accent); font-size: 17px; }
+.chip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 14px; background: linear-gradient(180deg, #1f4161, var(--panel) 70%); border: 2px solid var(--line); min-width: 0; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), 0 3px 0 rgba(0, 0, 0, .25); }
+/* 資訊卡的圖示放在一塊圓角色塊裡 */
+.chip > .ico { color: var(--accent); font-size: 17px; width: 1.75em; height: 1.75em; padding: .32em; border-radius: 9px; background: rgba(55, 214, 232, .14); box-shadow: inset 0 0 0 1.5px rgba(55, 214, 232, .28); }
 .chip-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
 .chip-name { font-size: 12px; color: var(--mute); font-weight: 700; white-space: nowrap; }
 .chip-value { font-size: 16px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .hud-warn { padding: 6px 10px; border-radius: 10px; background: var(--warn-bg); border: 2px solid var(--danger); font-weight: 800; font-size: 14px; text-align: center; }
 .bar { grid-area: bar; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 8px calc(12px + var(--sar)) calc(10px + var(--sab)) calc(12px + var(--sal)); }
 .bar .btn { padding: 8px 6px; min-height: 52px; }
-.stage { grid-area: stage; position: relative; min-height: 0; min-width: 0; overflow: hidden; }
+/* 盤面後面一圈柔光，像工作檯上的燈 */
+.stage { grid-area: stage; position: relative; min-height: 0; min-width: 0; overflow: hidden; background: radial-gradient(58% 46% at 50% 54%, rgba(90, 175, 255, .2), rgba(90, 175, 255, .05) 55%, transparent 75%); }
 .stage:focus-visible { outline-offset: -4px; border-radius: 12px; }
 .stage-host { position: absolute; inset: 0; }
 .stage-error { grid-area: 1 / 1 / -1 / -1; place-self: center; max-width: min(92%, 460px); display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 24px; text-align: center; border-radius: 22px; border: 3px solid var(--line); background: var(--panel); }
@@ -306,7 +308,7 @@ button, a, [role="switch"] { touch-action: manipulation; }
 /* 橫向：資訊與操作收到左側欄，盤面盡量放大 */
 @media (orientation: landscape) and (min-width: 560px) {
   .game { grid-template: "side stage" minmax(0, 1fr) / clamp(168px, 22vw, 250px) minmax(0, 1fr); }
-  .game-side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; padding: 2px 4px calc(10px + var(--sab)) calc(12px + var(--sal)); }
+  .game-side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; margin: 0 0 calc(8px + var(--sab)) calc(8px + var(--sal)); padding: 10px; border-radius: 18px; border: 2px solid rgba(45, 90, 132, .7); background: linear-gradient(180deg, rgba(20, 46, 72, .78), rgba(12, 30, 50, .78)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
   .hud, .bar { padding: 0; }
   .hud { flex: 1; min-height: 0; }
   .hud-chips, .bar { grid-template-columns: minmax(0, 1fr); }
@@ -388,7 +390,7 @@ button, a, [role="switch"] { touch-action: manipulation; }
 /* 大螢幕橫向：左側資訊欄的字與按鈕跟著放大，遠一點也看得清楚 */
 @media (orientation: landscape) and (min-width: 1100px) and (min-height: 700px) {
   .game { grid-template-columns: clamp(220px, 20vw, 290px) minmax(0, 1fr); }
-  .game-side { padding-left: calc(16px + var(--sal)); gap: 14px; }
+  .game-side { padding: 14px; gap: 14px; }
   .hud { gap: 10px; }
   .hud-chips { gap: 10px; }
   .chip { padding: 10px 14px; gap: 12px; }

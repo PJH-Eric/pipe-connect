@@ -130,7 +130,7 @@ const ACTIONS = {
   },
   async 設定() {
     await page.locator('#btn-settings').click();
-    await page.locator('.modal-settings .switch').nth(rng.int(4)).click();
+    await page.locator('.modal-settings .switch').nth(rng.int(5)).click();
     await page.keyboard.press('Escape');
   },
   async 轉向() {

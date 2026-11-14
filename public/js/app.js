@@ -108,6 +108,8 @@ function openSettings() {
       h('div', { class: 'set-sub' }, h('span', null, t('set.volume')), sfxVol),
       row('moves', 'set.vibrate', Switch({ checked: s.vibrate, label: t('set.vibrate'), onChange: (v) => { s.vibrate = v; commit(); } }), 'set.vibrate.desc'),
       row('view', 'set.reduce', Switch({ checked: s.reduceMotion, label: t('set.reduce'), onChange: (v) => { s.reduceMotion = v; commit(); } }), 'set.reduce.desc'),
+      // 重新打開高畫質時，把「這台裝置跑不動」的記錄清掉，讓它再試一次
+      row('star', 'set.quality', Switch({ checked: s.hiQuality && !store().last.autoLow, label: t('set.quality'), onChange: (v) => { s.hiQuality = v; store().last.autoLow = false; commit(); } }), 'set.quality.desc'),
     );
   };
   const holder = h('div', null, build());
@@ -117,7 +119,7 @@ function openSettings() {
     closeLabel: t('set.close'),
     body: holder,
     actions: [
-      Button({ ico: 'restart', label: t('set.reset'), onClick: () => { Object.assign(s, DEFAULT_SETTINGS); commit(); holder.replaceChildren(build()); } }),
+      Button({ ico: 'restart', label: t('set.reset'), onClick: () => { Object.assign(s, DEFAULT_SETTINGS); store().last.autoLow = false; commit(); holder.replaceChildren(build()); } }),
       Button({ ico: 'check', label: t('set.done'), variant: 'primary', onClick: () => modal.close() }),
     ],
   });

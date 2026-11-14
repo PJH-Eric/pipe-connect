@@ -7,9 +7,11 @@ import { DIRS, kind, curMask, neighbor } from './core/rules.js';
 
 export const WATER_COLORS = [0x9aa7b4, 0x2f9bff, 0xff7a3d, 0x35c96b, 0xb06bff];
 const MIXED_COLOR = 0x6b4a2e;
-const TILE = { normal: 0xe4ecf2, locked: 0x8a8076, hinted: 0xf6d77a };
+const TILE = { normal: 0xe9f0f5, locked: 0x6f665e, hinted: 0xf6d77a };
 const PIPE_R = 0.16;
 const PIPE_Y = 0.3;
+const BEND = 0.27; // 彎管的轉彎半徑
+const STUB = 0.5 - BEND; // 彎管兩端直管的長度
 const FLOW_Y = 0.62; // 水龍頭出水箭頭的高度（浮在黃銅接頭上方）
 const TURN_MS = 150;
 const HALF_PI = Math.PI / 2;
@@ -41,6 +43,31 @@ function mergeParts(parts) {
   return out;
 }
 
+/** 圓角矩形外框（可帶一個圓角矩形的洞），給擠出幾何用 */
+function roundedRect(w, h, r, into = new THREE.Shape()) {
+  const x = -w / 2, y = -h / 2;
+  into.moveTo(x + r, y);
+  into.lineTo(x + w - r, y);
+  into.absarc(x + w - r, y + r, r, -HALF_PI, 0, false);
+  into.lineTo(x + w, y + h - r);
+  into.absarc(x + w - r, y + h - r, r, 0, HALF_PI, false);
+  into.lineTo(x + r, y + h);
+  into.absarc(x + r, y + h - r, r, HALF_PI, Math.PI, false);
+  into.lineTo(x, y + r);
+  into.absarc(x + r, y + r, r, Math.PI, Math.PI * 1.5, false);
+  return into;
+}
+
+/** 躺平的圓角厚板：頂面在 y=top，邊緣有小倒角（比直角方塊多一圈反光，看起來才像實物） */
+function slab(w, h, radius, thickness, top, bevel = 0.02, hole = null) {
+  const shape = roundedRect(w, h, radius);
+  if (hole) shape.holes.push(roundedRect(hole.w, hole.h, hole.r, new THREE.Path()));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: thickness - bevel * 2, bevelEnabled: true, bevelThickness: bevel, bevelSize: bevel, bevelSegments: 3, curveSegments: 8 });
+  geo.rotateX(-HALF_PI);
+  geo.translate(0, top - thickness + bevel, 0);
+  return geo;
+}
+
 const M = () => new THREE.Matrix4();
 function place(x, y, z, rx = 0, rz = 0) {
   return M().compose(
@@ -54,23 +81,50 @@ function place(x, y, z, rx = 0, rz = 0) {
 function buildPipeGeometry(mask, isSource, base) {
   const parts = [];
   const k = kind(mask);
-  for (let d = 0; d < 4; d++) {
-    if (!(mask & DIRS[d].bit)) continue;
-    const { dx, dy } = DIRS[d];
-    // 圓柱預設沿 Y 軸；轉成沿 X（東西）或沿 Z（南北）
-    const rx = dx === 0 ? HALF_PI : 0;
-    const rz = dx !== 0 ? HALF_PI : 0;
-    parts.push({ geo: base.arm, matrix: place(dx * 0.25, PIPE_Y, dy * 0.25, rx, rz), shade: 1 });
-    parts.push({ geo: base.flange, matrix: place(dx * 0.455, PIPE_Y, dy * 0.455, rx, rz), shade: 0.72 });
-  }
-  if (isSource) {
-    parts.push({ geo: base.tank, matrix: place(0, 0.34, 0), shade: 0.82 });
-    parts.push({ geo: base.tankRim, matrix: place(0, 0.6, 0), shade: 0.6 });
-  } else if (k === 'end') {
-    parts.push({ geo: base.bulb, matrix: place(0, PIPE_Y, 0), shade: 0.9 });
-    parts.push({ geo: base.cap, matrix: place(0, PIPE_Y + 0.2, 0), shade: 0.6 });
+  const open = DIRS.filter((d) => mask & d.bit);
+  // 圓柱預設沿 Y 軸；轉成沿 X（東西）或沿 Z（南北）
+  const lay = (d) => [d.dx === 0 ? HALF_PI : 0, d.dx !== 0 ? HALF_PI : 0];
+  const flange = (d) => {
+    const [rx, rz] = lay(d);
+    parts.push({ geo: base.flange, matrix: place(d.dx * 0.455, PIPE_Y, d.dy * 0.455, rx, rz), shade: 0.7 });
+    parts.push({ geo: base.collar, matrix: place(d.dx * 0.385, PIPE_Y, d.dy * 0.385, rx, rz), shade: 0.86 });
+  };
+  open.forEach(flange);
+
+  if (k === 'elbow' && !isSource) {
+    // 彎管：兩段短直管＋四分之一圓環，轉角是圓滑的
+    const [a, b] = open;
+    for (const d of open) {
+      const [rx, rz] = lay(d);
+      parts.push({ geo: base.stub, matrix: place(d.dx * (0.5 - STUB / 2), PIPE_Y, d.dy * (0.5 - STUB / 2), rx, rz), shade: 1 });
+    }
+    // 圓環躺平後弧線在 XZ 平面、從 +X 繞到 +Z；轉到「從 -b 繞到 -a」的位置
+    const cx = (a.dx + b.dx) * BEND, cz = (a.dy + b.dy) * BEND;
+    const ang = (v) => Math.atan2(-v.dy, -v.dx);
+    let start = ang(b);
+    if (Math.abs(((ang(a) - start + Math.PI * 3) % (Math.PI * 2)) - Math.PI - HALF_PI) > 0.01) start = ang(a);
+    const m = M().makeTranslation(cx, PIPE_Y, cz).multiply(M().makeRotationY(-start)).multiply(M().makeRotationX(HALF_PI));
+    parts.push({ geo: base.bend, matrix: m, shade: 1 });
+  } else if (k === 'straight' && !isSource) {
+    const [rx, rz] = lay(open[0]);
+    parts.push({ geo: base.full, matrix: place(0, PIPE_Y, 0, rx, rz), shade: 1 });
+    parts.push({ geo: base.band, matrix: place(0, PIPE_Y, 0, rx, rz), shade: 0.8 });
   } else {
-    parts.push({ geo: k === 'tee' || k === 'cross' ? base.hub : base.joint, matrix: place(0, PIPE_Y, 0), shade: 1 });
+    for (const d of open) {
+      const [rx, rz] = lay(d);
+      parts.push({ geo: base.arm, matrix: place(d.dx * 0.25, PIPE_Y, d.dy * 0.25, rx, rz), shade: 1 });
+    }
+    if (isSource) {
+      parts.push({ geo: base.tank, matrix: place(0, 0.34, 0), shade: 0.84 });
+      parts.push({ geo: base.tankRim, matrix: place(0, 0.6, 0), shade: 0.6 });
+      parts.push({ geo: base.tankRim, matrix: place(0, 0.14, 0), shade: 0.6 });
+    } else if (k === 'end') {
+      parts.push({ geo: base.bulb, matrix: place(0, PIPE_Y, 0), shade: 0.92 });
+      parts.push({ geo: base.capRing, matrix: place(0, PIPE_Y + 0.19, 0), shade: 0.62 });
+      parts.push({ geo: base.cap, matrix: place(0, PIPE_Y + 0.23, 0), shade: 0.75 });
+    } else {
+      parts.push({ geo: base.hub, matrix: place(0, PIPE_Y, 0), shade: 1 });
+    }
   }
   return mergeParts(parts);
 }
@@ -97,11 +151,21 @@ export class PipeScene {
     this.celebrateAt = 0;
     // 省電：ticks 是畫面更新的機會，renders 是真的有重畫的次數（巡檢會看兩者的比例）
     this.stats = { ticks: 0, renders: 0 };
+    // 畫質：預設高（有陰影、高解析）；量到這台裝置畫一幀太慢就自動降成低，之後不再升回去
+    this.quality = handlers.lowQuality ? 'low' : 'high';
+    this.perf = { n: 0, ms: 0, last: 0, done: !!window.__PIPE_KEEP_QUALITY__ };
+    this.firstFrame = [];
     this.skipDrop = false;
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.02;
+    // 陰影只在盤面有變動時重算（水管轉動、換關），平常不花力氣
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false;
     const canvas = this.renderer.domElement;
     canvas.className = 'stage-canvas';
     canvas.setAttribute('aria-hidden', 'true');
@@ -109,23 +173,40 @@ export class PipeScene {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(26, 1, 0.1, 200);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x4a5f78, 1.25));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.9);
-    sun.position.set(3.5, 9, 5);
-    this.scene.add(sun);
-    const fill = new THREE.DirectionalLight(0x9fd8ff, 0.55);
+    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x41566e, 0.75));
+    const sun = new THREE.DirectionalLight(0xfff4e2, 2.3);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.03;
+    this.scene.add(sun, sun.target);
+    this.sun = sun;
+    const fill = new THREE.DirectionalLight(0x9fd8ff, 0.5);
     fill.position.set(-6, 4, -3);
     this.scene.add(fill);
+    // 低畫質不需要環境反光，連貼圖都不用做（慢的裝置開局快很多）
+    if (this.quality === 'high') this._makeEnvironment();
+    else {
+      this.renderer.shadowMap.enabled = false;
+      sun.castShadow = false;
+      this.renderer.setPixelRatio(1);
+      this.perf.done = true;
+    }
     this.root = new THREE.Group();
     this.scene.add(this.root);
 
     this.base = {
-      arm: new THREE.CylinderGeometry(PIPE_R, PIPE_R, 0.5, 18, 1),
+      arm: new THREE.CylinderGeometry(PIPE_R, PIPE_R, 0.5, 18, 1, true),
+      full: new THREE.CylinderGeometry(PIPE_R, PIPE_R, 1, 18, 1, true),
+      stub: new THREE.CylinderGeometry(PIPE_R, PIPE_R, STUB, 18, 1, true),
+      bend: new THREE.TorusGeometry(BEND, PIPE_R, 12, 12, HALF_PI),
+      band: new THREE.CylinderGeometry(PIPE_R + 0.022, PIPE_R + 0.022, 0.07, 18, 1),
       flange: new THREE.CylinderGeometry(PIPE_R + 0.065, PIPE_R + 0.065, 0.09, 18, 1),
-      joint: new THREE.SphereGeometry(PIPE_R, 18, 12),
+      collar: new THREE.CylinderGeometry(PIPE_R + 0.03, PIPE_R + 0.03, 0.05, 18, 1),
       hub: new THREE.SphereGeometry(PIPE_R + 0.06, 18, 12),
+      capRing: new THREE.CylinderGeometry(0.15, 0.17, 0.05, 20, 1),
       bulb: new THREE.SphereGeometry(0.23, 20, 14),
-      cap: new THREE.CylinderGeometry(0.1, 0.13, 0.08, 14, 1),
+      cap: new THREE.CylinderGeometry(0.085, 0.11, 0.06, 18, 1),
       // 水龍頭（水源）的零件：出水口的黃銅接頭、往外流的箭頭、頂上的手輪、底下的色墊
       spout: new THREE.CylinderGeometry(0.265, 0.265, 0.13, 24, 1),
       spoutLip: new THREE.CylinderGeometry(0.2, 0.2, 0.135, 24, 1),
@@ -135,8 +216,8 @@ export class PipeScene {
       pad: new THREE.CylinderGeometry(0.455, 0.455, 0.02, 32, 1),
       tank: new THREE.CylinderGeometry(0.31, 0.34, 0.46, 24, 1),
       tankRim: new THREE.CylinderGeometry(0.35, 0.35, 0.07, 24, 1),
-      tile: new THREE.BoxGeometry(0.94, 0.12, 0.94),
-      rivet: new THREE.SphereGeometry(0.055, 10, 8),
+      tile: slab(0.95, 0.95, 0.07, 0.12, 0.06, 0.018),
+      rivet: new THREE.CylinderGeometry(0.05, 0.058, 0.035, 12, 1),
       drop: new THREE.SphereGeometry(0.06, 10, 8),
       arrow: new THREE.ConeGeometry(0.13, 0.26, 4),
       // 水源頂上的形狀：顏色之外再用形狀區分（球／方塊／三角錐／八面體）
@@ -171,6 +252,62 @@ export class PipeScene {
     this.resize();
   }
 
+  /**
+   * 做一張小小的「攝影棚」環境貼圖給金屬與陶瓷反光用：上亮下暗的漸層天空，加兩片柔光板當高光。
+   * 全部用程式畫，不需要外部圖檔。
+   */
+  _makeEnvironment() {
+    const env = new THREE.Scene();
+    const sky = new THREE.SphereGeometry(20, 24, 16);
+    const col = new Float32Array(sky.attributes.position.count * 3);
+    const top = new THREE.Color(0xcfe6ff), mid = new THREE.Color(0x6f93b8), low = new THREE.Color(0x0b1a2b), c = new THREE.Color();
+    for (let i = 0; i < sky.attributes.position.count; i++) {
+      const t = sky.attributes.position.getY(i) / 20;
+      if (t > 0) c.copy(mid).lerp(top, Math.min(1, t * 1.6));
+      else c.copy(mid).lerp(low, Math.min(1, -t * 2.2));
+      col.set([c.r, c.g, c.b], i * 3);
+    }
+    sky.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    const skyMat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide });
+    env.add(new THREE.Mesh(sky, skyMat));
+    const panelGeo = new THREE.PlaneGeometry(9, 5);
+    const panelMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+    const warmMat = new THREE.MeshBasicMaterial({ color: 0xffe2b0, side: THREE.DoubleSide });
+    for (const [x, y, z, m] of [[6, 11, 7, panelMat], [-9, 7, -6, warmMat], [0, 13, -2, panelMat]]) {
+      const panel = new THREE.Mesh(panelGeo, m);
+      panel.position.set(x, y, z);
+      panel.lookAt(0, 0, 0);
+      env.add(panel);
+    }
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.envTarget = pmrem.fromScene(env, 0.035);
+    this.scene.environment = this.envTarget.texture;
+    pmrem.dispose();
+    sky.dispose();
+    panelGeo.dispose();
+    [skyMat, panelMat, warmMat].forEach((m) => m.dispose());
+  }
+
+  /** 太陽光的陰影範圍剛好包住盤面 */
+  _fitShadow() {
+    const { w, h } = this.board;
+    const half = Math.max(w, h) / 2 + 1.6;
+    const cam = this.sun.shadow.camera;
+    Object.assign(cam, { left: -half, right: half, top: half, bottom: -half, near: 1, far: half * 6 });
+    cam.updateProjectionMatrix();
+    this.sun.position.set(half * 0.75, half * 2.4, half * 1.15);
+    this.sun.target.position.set(0, 0, 0);
+    this.sun.target.updateMatrixWorld();
+    // 小螢幕或很大的盤面用小一點的陰影貼圖，省記憶體
+    const size = Math.min(window.innerWidth, window.innerHeight) < 500 ? 1024 : 2048;
+    if (this.sun.shadow.mapSize.x !== size) {
+      this.sun.shadow.mapSize.set(size, size);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+    }
+    this.shadowDirty = true;
+  }
+
   /* ---------- 建立盤面 ---------- */
   setBoard(board) {
     this._clearBoard();
@@ -187,11 +324,17 @@ export class PipeScene {
       return m;
     };
 
-    // 底座
-    const baseGeo = new THREE.BoxGeometry(w + 0.5, 0.3, h + 0.5);
+    // 底座：圓角厚板，四周比地磚多一圈
+    const baseGeo = slab(w + 0.62, h + 0.62, 0.22, 0.34, -0.06, 0.04);
     this.disposables.push(baseGeo);
-    const baseMesh = add(new THREE.Mesh(baseGeo, mat({ color: 0x1d3147, roughness: 0.8 })));
-    baseMesh.position.y = -0.21;
+    const baseMesh = add(new THREE.Mesh(baseGeo, mat({ color: 0x1b3550, roughness: 0.45, metalness: 0.35, envMapIntensity: 0.7 })));
+    baseMesh.receiveShadow = true;
+    // 地磚之間的溝縫：一片深色底板
+    const groutGeo = new THREE.BoxGeometry(w + 0.02, 0.02, h + 0.02);
+    this.disposables.push(groutGeo);
+    const grout = add(new THREE.Mesh(groutGeo, mat({ color: 0x0c1c2e, roughness: 0.9 })));
+    grout.position.y = -0.055;
+    grout.receiveShadow = true;
 
     // 邊框：一般盤面是實心圍欄；環繞盤面改成一圈往外指的箭頭
     if (board.wrap) {
@@ -213,18 +356,22 @@ export class PipeScene {
         put(w / 2 + 0.3, y - (h - 1) / 2, 0, -HALF_PI);
       }
     } else {
-      const railMat = mat({ color: 0x2c4a66, roughness: 0.55 });
-      const sideGeo = new THREE.BoxGeometry(w + 0.5, 0.22, 0.2);
-      const endGeo = new THREE.BoxGeometry(0.2, 0.22, h + 0.1);
-      this.disposables.push(sideGeo, endGeo);
-      [[0, -h / 2 - 0.15, sideGeo], [0, h / 2 + 0.15, sideGeo], [-w / 2 - 0.15, 0, endGeo], [w / 2 + 0.15, 0, endGeo]].forEach(([x, z, g]) => {
-        const r = add(new THREE.Mesh(g, railMat));
-        r.position.set(x, 0.05, z);
-      });
+      // 一體成形的圓角邊框，四個角各一顆黃銅螺栓
+      const railGeo = slab(w + 0.62, h + 0.62, 0.22, 0.26, 0.2, 0.035, { w: w + 0.06, h: h + 0.06, r: 0.06 });
+      this.disposables.push(railGeo);
+      const rail = add(new THREE.Mesh(railGeo, mat({ color: 0x2a4d70, roughness: 0.35, metalness: 0.55, envMapIntensity: 0.9 })));
+      rail.castShadow = rail.receiveShadow = true;
+      const boltMat = mat({ color: 0xf2b53a, metalness: 0.8, roughness: 0.25 });
+      for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+        const bolt = add(new THREE.Mesh(this.base.rivet, boltMat));
+        bolt.scale.setScalar(1.7);
+        bolt.position.set(sx * (w / 2 + 0.17), 0.215, sz * (h / 2 + 0.17));
+      }
     }
 
     // 地磚（一次畫完）
-    this.tiles = add(new THREE.InstancedMesh(this.base.tile, mat({ color: 0xffffff, roughness: 0.55 }), n));
+    this.tiles = add(new THREE.InstancedMesh(this.base.tile, mat({ color: 0xffffff, roughness: 0.2, metalness: 0.02, envMapIntensity: 0.75 }), n));
+    this.tiles.receiveShadow = true;
     this.tiles.instanceMatrix.setUsage(THREE.StaticDrawUsage);
     const m4 = M();
     for (let i = 0; i < n; i++) {
@@ -233,7 +380,7 @@ export class PipeScene {
     }
 
     // 鎖住水管的四角鉚釘
-    this.rivets = add(new THREE.InstancedMesh(this.base.rivet, mat({ color: 0x4a423b, metalness: 0.5, roughness: 0.4 }), n * 4));
+    this.rivets = add(new THREE.InstancedMesh(this.base.rivet, mat({ color: 0xc9ced4, metalness: 0.9, roughness: 0.25 }), n * 4));
     this.rivets.count = 0;
 
     // 游標（鍵盤與滑鼠停留的格子）
@@ -248,17 +395,19 @@ export class PipeScene {
     this.drops.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(96 * 3), 3);
 
     // 水管
-    const brass = mat({ color: 0xf2b53a, metalness: 0.45, roughness: 0.3, emissive: 0x5a3a00, emissiveIntensity: 0.25 });
+    const brass = mat({ color: 0xf2b53a, metalness: 0.85, roughness: 0.22, emissive: 0x3a2500, emissiveIntensity: 0.2, envMapIntensity: 1.2 });
     const flowMat = mat({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.9, roughness: 0.3 });
     const markMats = WATER_COLORS.map((c) => mat({ color: c, emissive: c, emissiveIntensity: 0.45, roughness: 0.3 }));
     this.cells = board.cells.map((cell, i) => {
       const key = cell.mask + (cell.src ? 's' : 'p');
       if (!this.geoCache.has(key)) this.geoCache.set(key, buildPipeGeometry(cell.mask, !!cell.src, this.base));
-      const material = mat({ color: WATER_COLORS[0], vertexColors: true, metalness: 0.25, roughness: 0.32 });
+      const material = mat({ color: WATER_COLORS[0], vertexColors: true, metalness: 0.72, roughness: 0.24, envMapIntensity: 1.15 });
       const group = new THREE.Group();
       const p = this._cellPos(i);
       group.position.set(p.x, 0, p.z);
-      group.add(new THREE.Mesh(this.geoCache.get(key), material));
+      const body = new THREE.Mesh(this.geoCache.get(key), material);
+      body.castShadow = body.receiveShadow = true;
+      group.add(body);
       if (cell.src) {
         const mark = new THREE.Mesh(this.base.marks[(cell.src - 1) % 4], markMats[cell.src]);
         mark.position.y = cell.src === 3 ? 0.8 : 0.77;
@@ -313,6 +462,7 @@ export class PipeScene {
       };
     });
     this.hasFlows = this.cells.some((c) => c.flows.length > 0);
+    this._fitShadow();
     this._paintTiles();
     this.view.zoom = 1;
     this.view.panX = this.view.panZ = 0;
@@ -338,7 +488,7 @@ export class PipeScene {
       if (cell.locked && !cell.hinted) {
         const p = this._cellPos(i);
         for (const [ox, oz] of [[-0.36, -0.36], [0.36, -0.36], [-0.36, 0.36], [0.36, 0.36]]) {
-          this.rivets.setMatrixAt(r++, m4.makeTranslation(p.x + ox, 0.07, p.z + oz));
+          this.rivets.setMatrixAt(r++, m4.makeTranslation(p.x + ox, 0.072, p.z + oz));
         }
       }
     });
@@ -372,6 +522,7 @@ export class PipeScene {
     c.turnT0 = this.reduced ? -1 : performance.now();
     if (this.reduced) c.group.rotation.y = c.angle;
     this.dirty = true;
+    this.shadowDirty = true;
   }
 
   /** 依水流結果更新顏色、漏水與鎖定外觀 */
@@ -402,7 +553,11 @@ export class PipeScene {
     c.material.color.copy(c.cur);
     const wet = c.colorCode !== 0;
     c.material.emissive.copy(c.cur);
-    c.material.emissiveIntensity = wet ? 0.28 : 0;
+    // 有水的水管像上了亮漆：反光少一點、顏色才飽滿；沒水的是亮面金屬
+    c.material.emissiveIntensity = wet ? 0.34 : 0;
+    c.material.metalness = wet ? 0.1 : this.quality === 'low' ? 0.05 : 0.72;
+    c.material.roughness = wet ? 0.22 : 0.24;
+    c.material.envMapIntensity = wet ? 0.32 : 1.15;
   }
 
   /** 點到鎖住的水管：原地晃兩下表示轉不動 */
@@ -441,6 +596,32 @@ export class PipeScene {
       this.cursorMesh.visible = true;
     }
     this.dirty = true;
+  }
+
+  /** 盤面第一次真的畫到螢幕上之後呼叫（著色器編譯可能卡住一下，倒數要等它） */
+  onFirstFrame(fn) {
+    this.firstFrame.push(fn);
+    this.dirty = true;
+  }
+
+  /** 'high'：環境反光、陰影、高解析度；'low'：三樣都關，材質改回不靠反光也好看的設定（慢的裝置） */
+  setQuality(q) {
+    if (q === this.quality) return;
+    this.quality = q;
+    const low = q === 'low';
+    this.renderer.shadowMap.enabled = !low;
+    this.sun.castShadow = !low;
+    this.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio || 1, 2));
+    if (!low && !this.envTarget) this._makeEnvironment();
+    this.scene.environment = low ? null : this.envTarget.texture;
+    this.handlers.onQuality?.(q);
+    this.perf.done = true;
+    this.cells.forEach((c) => this._applyColor(c));
+    this.scene.traverse((o) => {
+      if (o.material) o.material.needsUpdate = true;
+    });
+    this.shadowDirty = true;
+    this.resize();
   }
 
   setReducedMotion(on) {
@@ -724,6 +905,7 @@ export class PipeScene {
     if (this.lost) return;
     this.stats.ticks++;
     let busy = false;
+    let moving = false;
     for (const c of this.cells) {
       if (c.turnT0 >= 0) {
         const t = Math.min(1, (now - c.turnT0) / TURN_MS);
@@ -731,6 +913,7 @@ export class PipeScene {
         c.group.rotation.y = c.from + (c.angle - c.from) * e;
         if (t >= 1) c.turnT0 = -1;
         busy = true;
+        moving = true;
       }
       if (c.shakeT0 >= 0 && c.turnT0 < 0) {
         const t = (now - c.shakeT0) / 280;
@@ -739,6 +922,7 @@ export class PipeScene {
           c.group.rotation.y = c.angle;
         } else c.group.rotation.y = c.angle + Math.sin(t * Math.PI * 4) * 0.13 * (1 - t);
         busy = true;
+        moving = true;
       }
       if (c.colorT0 >= 0) {
         const t = (now - c.colorT0) / 200;
@@ -761,6 +945,7 @@ export class PipeScene {
           c.group.scale.setScalar(1 + s * 0.12);
         }
         busy = true;
+        moving = true;
       }
     }
     // 混色的水管閃爍警告
@@ -793,10 +978,31 @@ export class PipeScene {
       }
       busy = true;
     }
+    if (moving || this.shadowDirty) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.shadowDirty = false;
+    }
+    if (!(busy || this.dirty)) this.perf.last = 0;
     if (busy || this.dirty) {
       this.dirty = false;
       this.stats.renders++;
       this.renderer.render(this.scene, this.camera);
+      // 量「連續兩次重畫之間隔多久」（顯示卡的工作是非同步的，量 render() 本身不準）。
+      // 前兩幀要編譯著色器不算；接下來 5 次平均超過 70ms（不到 14fps）就降畫質。
+      if (this.quality === 'high' && this.stats.renders > 2) {
+        const gap = now - this.perf.last;
+        if (this.perf.last && gap < 5000) {
+          this.perf.n++;
+          this.perf.ms += gap;
+          if (this.perf.n >= 5) {
+            if (this.perf.ms / this.perf.n > 70) this.setQuality('low');
+            else this.perf = { n: 0, ms: 0, last: 0, done: true };
+          }
+        }
+      }
+      if (!this.perf.done) this.perf.last = now;
+      // 盤面真的畫出來了，才通知外面（開局倒數從這裡才開始算）
+      if (this.firstFrame.length) this.firstFrame.splice(0).forEach((fn) => fn());
     }
   }
 
@@ -848,6 +1054,8 @@ export class PipeScene {
     this.resizeObs.disconnect();
     this._clearBoard();
     Object.values(this.base).flat().forEach((g) => g.dispose());
+    this.envTarget?.dispose();
+    this.sun.shadow.map?.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
   }

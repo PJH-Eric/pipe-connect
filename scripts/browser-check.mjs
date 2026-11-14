@@ -156,7 +156,7 @@ if (!skipFlow) {
   if (await page.evaluate(() => window.__game.session.started)) note('倒數中暫停後，時間卻開始跑了');
   await page.keyboard.press('Escape');
   if (!(await page.evaluate(() => window.__game.counting))) note('倒數中暫停再繼續，沒有重新倒數');
-  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   if (!(await page.locator('.countdown.go').count())) note('倒數結束沒有顯示「開始！」');
   await settle(page, 900);
   if (await page.locator('.countdown:not([hidden])').count()) note('「開始！」之後遮罩沒有消失');
@@ -263,7 +263,7 @@ if (!skipFlow) {
   if (!(await page.locator('.modal-result').count())) note('關閉分享視窗時結算也被關掉了');
   await click(page, '.modal-result .btn-primary');
   await page.waitForFunction(() => window.__game?.session && !window.__game.session.done && window.__game.counting);
-  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   if (!(await page.locator('#top-title').textContent()).includes('2')) note('下一關沒有進到第 2 關');
   // 玩到一半離開再回來、甚至重新整理，都要接著上次的進度
   {
@@ -282,7 +282,7 @@ if (!skipFlow) {
     await page.waitForFunction(() => window.__game?.session);
     const back = await page.evaluate(() => ({ moves: window.__game.session.moves, rots: window.__game.session.board.cells.map((c) => c.rot).join(''), toast: !!document.querySelector('.toast.show') }));
     if (back.moves !== 3 || back.rots !== rots || !back.toast) note('離開再回來沒有接回進度：' + JSON.stringify(back));
-    await page.waitForFunction(() => !window.__game.counting && !window.__game.session.paused, null, { timeout: 8000 });
+    await page.waitForFunction(() => !window.__game.counting && !window.__game.session.paused, null, { timeout: 40000 });
   }
   // 暫停 → 繼續 → 再暫停 → 回選關
   await page.keyboard.press('Escape');
@@ -329,7 +329,7 @@ if (!skipFlow) {
   await page.goBack();
   await click(page, '.mode-random');
   await page.locator('.diff-card').nth(1).click();
-  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   // 重來的確認：轉了 5 下以上按「重來」要先問；取消後進度與計時照舊，確定才歸零
   {
     await page.evaluate(() => {
@@ -347,7 +347,7 @@ if (!skipFlow) {
     await page.locator('.bar .btn').nth(2).click();
     await page.locator('[data-act="confirm-restart"]').click();
     await page.waitForFunction(() => window.__game.session.moves === 0 && window.__game.counting);
-    await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   }
   // 即時星星：開局三顆，用了提示就少一顆；點鎖住的水管會晃動且不算步數
   const starsOn = () => page.locator('.hud-stars .ico.on').count();
@@ -390,7 +390,7 @@ if (!skipFlow) {
   await page.waitForSelector('#app[data-ready]');
   await page.locator('.mode-random').tap();
   await page.locator('.diff-card').nth(2).tap();
-  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   await settle(page, 600);
   const cdp = await context.newCDPSession(page);
   const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
@@ -465,7 +465,7 @@ if (!skipFlow) {
     const { context, page } = await open(820, 1180, 'zh-Hant');
     await click(page, '.mode-random');
     await page.locator('.diff-card').nth(2).click();
-    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
     const lost = await page.evaluate(async () => {
       const g = window.__game;
       const k = g.session.board.cells.findIndex((c) => !c.locked && c.mask !== 15);
@@ -529,7 +529,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await page.waitForFunction(() => window.__game?.session);
     await settle(page, 350);
     await audit(page, tag('countdown'));
-    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
     await settle(page, 900);
     await audit(page, tag('game'));
     {
@@ -560,7 +560,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
     // 最大的盤面：神話、邊緣相通、多色
     await page.locator('.diff-card').nth(4).click();
     await page.waitForFunction(() => window.__game?.session);
-    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
     await settle(page, 600);
     await audit(page, tag('game-myth'));
     {
@@ -641,7 +641,7 @@ if (process.env.AXE_PATH && !skipFlow) {
   await settle(page);
   await scan('選關');
   await click(page, '.levels-continue');
-  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   await settle(page, 900);
   await scan('遊戲');
   await page.keyboard.press('Escape');
@@ -699,7 +699,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
   await page.waitForFunction(() => window.__game?.session);
   await settle(page, 400);
   await audit(page, tag('countdown'));
-  await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 40000 });
   await settle(page, 900);
   await audit(page, tag('game'));
   await page.keyboard.press('Escape');

@@ -162,12 +162,17 @@ export function gameScreen(params, ctx) {
       refreshHud();
       return;
     }
-    const until = Date.now() + COUNTDOWN_MS;
+    // 用累計的方式倒數，而且每次最多只算 120ms：畫面卡住的那段時間不算，
+    // 慢的裝置才不會一卡就把 3、2、1 吃掉
+    let remain = COUNTDOWN_MS;
+    let prev = Date.now();
     let last = 0;
     cd.active = true;
     cdEl.hidden = false;
     const step = () => {
-      const remain = until - Date.now();
+      const now = Date.now();
+      remain -= Math.min(120, Math.max(0, now - prev));
+      prev = now;
       if (remain <= 0) {
         clearInterval(cd.tick);
         cd.tick = 0;
@@ -204,8 +209,9 @@ export function gameScreen(params, ctx) {
   function begin({ fresh = false } = {}) {
     clearTimeout(winTimer);
     session = new Session(makeBoard(params), params);
+    let resumed = false;
     if (fresh) clearGame(saveKey);
-    else if (saveKey && session.restore(loadGame(saveKey))) toast(t('game.resumed'), 'play');
+    else if (saveKey && session.restore(loadGame(saveKey))) resumed = true;
     lastWet = session.flow.wet;
     cursor = -1;
     shownStars = -1;
@@ -221,7 +227,17 @@ export function gameScreen(params, ctx) {
     });
     window.GameAnalytics?.reset();
     window.GameAnalytics?.start({ mode: 'solo', variant: params.mode, difficulty: params.diff });
-    startCountdown();
+    // 等盤面真的畫出來再開始倒數，慢的裝置才不會倒數到一半畫面才出現
+    const mine = session;
+    cdEl.hidden = false;
+    cd.active = true;
+    cdNum.textContent = '3';
+    refreshHud();
+    scene.onFirstFrame(() => {
+      if (left || session !== mine) return;
+      if (resumed) toast(t('game.resumed'), 'play');
+      if (cd.active && !cd.tick && !hasModal()) startCountdown();
+    });
   }
 
   function restart() {
@@ -463,6 +479,14 @@ export function gameScreen(params, ctx) {
 
   function makeScene() {
     return new PipeScene(stageHost, {
+      // 設定裡關掉高畫質，或這台裝置之前量過跑不動，就直接用低畫質
+      lowQuality: !store().settings.hiQuality || !!store().last.autoLow,
+      onQuality: (q) => {
+        if (q === 'low' && store().settings.hiQuality) {
+          store().last.autoLow = true;
+          save();
+        }
+      },
       onTap: doTap,
       onHover: (i) => {
         if (!hasModal() && session && !session.done) setCursor(i);
@@ -513,6 +537,7 @@ export function gameScreen(params, ctx) {
     onLang: () => session && refreshTexts(),
     onSettings() {
       scene?.setReducedMotion(store().settings.reduceMotion);
+      scene?.setQuality(!store().settings.hiQuality || store().last.autoLow ? 'low' : 'high');
     },
     leave() {
       left = true;
