@@ -137,7 +137,6 @@ export class PipeScene {
       ],
     };
     this.ray = new THREE.Raycaster();
-    this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.22);
 
     this._bind();
     this.resizeObs = new ResizeObserver(() => this.resize());
@@ -437,6 +436,32 @@ export class PipeScene {
     };
   }
 
+  /**
+   * 點擊準確度（巡檢用）：把每一格「地磚中心」與「水管頂端」投影到螢幕，
+   * 再用同一個位置去選格子，回傳選錯的格數。水管有高度、鏡頭是斜的，兩種位置都要選對才不會誤觸鄰格。
+   */
+  probePick() {
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const miss = { tile: 0, pipeTop: 0, armEnd: 0, sourceTop: 0, total: this.cells.length };
+    const hit = (x, y, z) => {
+      const v = new THREE.Vector3(x, y, z).project(this.camera);
+      return this._pick({ clientX: rect.left + ((v.x + 1) / 2) * rect.width, clientY: rect.top + ((1 - v.y) / 2) * rect.height });
+    };
+    this.cells.forEach((c, i) => {
+      const p = this._cellPos(i);
+      const cell = this.board.cells[i];
+      if (hit(p.x, 0.06, p.z) !== i) miss.tile++;
+      if (hit(p.x, PIPE_Y + PIPE_R, p.z) !== i) miss.pipeTop++;
+      if (cell.src && hit(p.x, 0.6, p.z) !== i) miss.sourceTop++;
+      // 每個開口靠近格子邊緣的水管頂端（最容易點到鄰格的位置）
+      const mask = curMask(cell);
+      let bad = false;
+      for (const d of DIRS) if (mask & d.bit && hit(p.x + d.dx * 0.36, PIPE_Y + PIPE_R, p.z + d.dy * 0.36) !== i) bad = true;
+      if (bad) miss.armEnd++;
+    });
+    return miss;
+  }
+
   _placeCamera() {
     const v = this.view;
     const d = v.fit / v.zoom;
@@ -477,16 +502,56 @@ export class PipeScene {
   }
 
   /* ---------- 輸入 ---------- */
+  /**
+   * 螢幕座標 → 格子。水管有高度、鏡頭是斜的，只用一個平面換算會把「點在水管上」算成後面那一格，
+   * 所以沿著視線由高往低取樣，先碰到哪一格的水管（或水塔）就是那一格；都沒碰到才用地磚所在的格子。
+   */
   _pick(ev) {
     if (!this.board) return -1;
     const rect = this.renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
     this.ray.setFromCamera(ndc, this.camera);
-    const hit = new THREE.Vector3();
-    if (!this.ray.ray.intersectPlane(this.plane, hit)) return -1;
+    const { origin: o, direction: dir } = this.ray.ray;
+    if (dir.y >= -1e-6) return -1;
     const { w, h } = this.board;
-    const x = Math.floor(hit.x + w / 2), y = Math.floor(hit.z + h / 2);
-    return x < 0 || y < 0 || x >= w || y >= h ? -1 : y * w + x;
+    const cellAt = (y) => {
+      const t = (y - o.y) / dir.y;
+      const px = o.x + dir.x * t, pz = o.z + dir.z * t;
+      const cx = Math.floor(px + w / 2), cz = Math.floor(pz + h / 2);
+      if (cx < 0 || cz < 0 || cx >= w || cz >= h) return null;
+      return { i: cz * w + cx, lx: px + w / 2 - cx - 0.5, lz: pz + h / 2 - cz - 0.5 };
+    };
+    for (let y = 0.96; y > 0.07; y -= 0.03) {
+      const c = cellAt(y);
+      if (c && this._insidePipe(c.i, c.lx, y, c.lz)) return c.i;
+    }
+    const tile = cellAt(0.06);
+    return tile ? tile.i : -1;
+  }
+
+  /** 格子內的一點（相對格子中心）是不是落在這一格的水管或水塔裡 */
+  _insidePipe(i, lx, y, lz) {
+    const cell = this.board.cells[i];
+    const r = Math.hypot(lx, lz);
+    const dy = y - PIPE_Y;
+    if (cell.src) {
+      if (y <= 0.66 && r <= 0.35) return true;
+      if (y > 0.6 && r <= 0.2) return true;
+    }
+    const mask = curMask(cell);
+    const k = kind(mask);
+    if (k === 'end' && !cell.src && Math.hypot(r, dy) <= 0.24) return true;
+    if (Math.hypot(r, dy) <= PIPE_R + 0.07) return true;
+    if (Math.abs(dy) > PIPE_R + 0.065) return false;
+    for (const d of DIRS) {
+      if (!(mask & d.bit)) continue;
+      const along = lx * d.dx + lz * d.dy;
+      const perp = Math.abs(lx * d.dy - lz * d.dx);
+      if (along < 0 || along > 0.5) continue;
+      const radius = along > 0.4 ? PIPE_R + 0.065 : PIPE_R; // 靠邊那段是比較粗的接頭
+      if (Math.abs(dy) <= radius && perp <= Math.sqrt(radius * radius - dy * dy) + 0.015) return true;
+    }
+    return false;
   }
 
   _bind() {

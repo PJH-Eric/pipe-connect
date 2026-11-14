@@ -375,6 +375,21 @@ for (const [name, vw, vh] of VIEWPORTS) {
       // 盤面要完整在畫面內，而且在較緊的那個方向至少佔 80%，不能縮成一小塊
       const m = await page.evaluate(() => window.__game.scene.measure());
       if (!m.inside || Math.max(m.fillX, m.fillY) < 0.8) note(tag('game') + '：盤面沒有放到最大或超出畫面 ' + JSON.stringify(m));
+      // 點擊準確度：地磚中心、水管頂端、開口靠邊的位置、水塔頂端都要選到自己這一格；
+      // 視角轉到最斜時前排水塔會擋住後排地磚（看到什麼點到什麼），所以最斜時不檢查地磚中心
+      const pick = await page.evaluate(() => {
+        const sc = window.__game.scene;
+        const flat = sc.probePick();
+        Object.assign(sc.view, { polar: 1.05, az: 0.9 });
+        sc._placeCamera();
+        const tilted = sc.probePick();
+        sc.resetView();
+        return { flat, tilted };
+      });
+      // 最斜時，緊貼在水塔後面的開口也會被水塔擋住，每個水塔最多擋兩個
+      const sources = await page.evaluate(() => window.__game.session.board.colors);
+      const bad = pick.flat.tile + pick.flat.pipeTop + pick.flat.armEnd + pick.flat.sourceTop + pick.tilted.pipeTop + pick.tilted.sourceTop + Math.max(0, pick.tilted.armEnd - sources * 2);
+      if (bad) note(tag('game') + '：點水管會選到別格 ' + JSON.stringify(pick));
     }
     await page.goBack();
     await page.goBack();
@@ -391,6 +406,21 @@ for (const [name, vw, vh] of VIEWPORTS) {
       // 盤面要完整在畫面內，而且在較緊的那個方向至少佔 80%，不能縮成一小塊
       const m = await page.evaluate(() => window.__game.scene.measure());
       if (!m.inside || Math.max(m.fillX, m.fillY) < 0.8) note(tag('game-myth') + '：盤面沒有放到最大或超出畫面 ' + JSON.stringify(m));
+      // 點擊準確度：地磚中心、水管頂端、開口靠邊的位置、水塔頂端都要選到自己這一格；
+      // 視角轉到最斜時前排水塔會擋住後排地磚（看到什麼點到什麼），所以最斜時不檢查地磚中心
+      const pick = await page.evaluate(() => {
+        const sc = window.__game.scene;
+        const flat = sc.probePick();
+        Object.assign(sc.view, { polar: 1.05, az: 0.9 });
+        sc._placeCamera();
+        const tilted = sc.probePick();
+        sc.resetView();
+        return { flat, tilted };
+      });
+      // 最斜時，緊貼在水塔後面的開口也會被水塔擋住，每個水塔最多擋兩個
+      const sources = await page.evaluate(() => window.__game.session.board.colors);
+      const bad = pick.flat.tile + pick.flat.pipeTop + pick.flat.armEnd + pick.flat.sourceTop + pick.tilted.pipeTop + pick.tilted.sourceTop + Math.max(0, pick.tilted.armEnd - sources * 2);
+      if (bad) note(tag('game-myth') + '：點水管會選到別格 ' + JSON.stringify(pick));
     }
     await page.evaluate(() => {
       const g = window.__game;
