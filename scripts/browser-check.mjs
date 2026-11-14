@@ -83,6 +83,13 @@ async function audit(page, tag) {
     for (const el of scope.querySelectorAll('.sa-view')) {
       if (el.scrollWidth > el.clientWidth + 1) out.push('捲動區水平溢出');
     }
+    // 文字跑出自己的按鈕或卡片外（沒有被裁切、但超出邊框）
+    for (const el of scope.querySelectorAll('.btn-label, .chip-text, .tab-label, .card-title')) {
+      if (!visible(el)) continue;
+      const box = el.closest('.btn, .chip, .tab, .card').getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      if (r.left < box.left - 1 || r.right > box.right + 1) out.push(`文字超出邊框：「${el.textContent.trim().slice(0, 16)}」`);
+    }
     // 元件互相重疊：按鈕、資訊卡、標籤、卡片之間不能壓到彼此（巢狀的不算）
     const blocks = [...scope.querySelectorAll('.btn, .icon-btn, .chip, .tag, .card, .level, .tab, .stat, .ach, .pill-btn, .hud-stars, .menu-item, .res-stat, .cd-num, .cd-tip')].filter(visible);
     const rects = blocks.map((e) => e.getBoundingClientRect());
@@ -537,6 +544,7 @@ if (!skipFlow) {
 console.log('版面檢查');
 const seeded = { progress: { camp: { tot: { stars: [3, 3, 2, 1, 3] }, easy: { stars: [3, 2] } }, daily: {}, stats: { clears: 7, taps: 120, seconds: 432, hints: 3, perfect: 2, maxStreak: 2 }, ach: { first: 1 } } };
 for (const [name, vw, vh] of VIEWPORTS) {
+  if (process.argv.includes('--long-only')) break;
   if (only ? !only.split(',').includes(name) : name.startsWith('x-')) continue;
   for (const lang of LANGS) {
     if (lang === 'zh-Hans' && name !== 'phone-portrait') continue; // 簡中字寬與繁中相同，抽一個尺寸確認
@@ -713,6 +721,7 @@ if (process.env.AXE_PATH && !skipFlow) {
 /* ---------- 3. 加長文字：每段英文再加長四成，模擬更長的語言，最容易破版的三種尺寸都要撐得住 ---------- */
 console.log('加長文字檢查');
 for (const [name, vw, vh] of VIEWPORTS) {
+  if (process.argv.includes('--no-long')) break;
   if (!['phone-small', 'phone-landscape', 'tablet-portrait'].includes(name)) continue;
   if (only && !only.split(',').includes(name)) continue;
   const { context, page } = await open(vw, vh, 'en', seeded, true);

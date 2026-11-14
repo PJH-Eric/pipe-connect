@@ -64,7 +64,7 @@ node scripts/browser-check.mjs --shots   # 同上並輸出截圖到 screenshots/
 
 設定 `AXE_PATH` 指到 axe-core 的 `axe.min.js` 時，`browser-check` 會另外對每個畫面做無障礙掃描。
 
-`browser-check` 除了完整玩一局與各尺寸破版檢查，還會檢查：盤面佔比與點擊準確度、遊戲中轉向、中途進度接回、加長四成文字的版面、沒有 WebGL 與 WebGL 遺失復原、重畫次數。
+`browser-check` 除了完整玩一局與各尺寸破版檢查（超出畫面、元件互相重疊、文字被裁切或跑出邊框），還會檢查：盤面佔比與點擊準確度、遊戲中轉向、中途進度接回、加長四成文字的版面、沒有 WebGL 與 WebGL 遺失復原、重畫次數。
 
 `browser-check` 不把 playwright 列為專案依賴；可用 `PLAYWRIGHT_PATH`、`CHROME_PATH` 指定位置，找不到就略過。
 
