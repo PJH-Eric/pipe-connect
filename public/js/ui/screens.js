@@ -100,6 +100,7 @@ export function levelsScreen(params, ctx) {
         type: 'button',
         class: `level ${locked ? 'is-locked' : ''} ${isCurrent ? 'is-current' : ''} ${stars ? 'is-done' : ''}`,
         'aria-disabled': locked ? 'true' : null,
+        tabindex: '-1',
         'aria-label': t(locked ? 'levels.ariaLocked' : 'levels.aria', { n: i + 1, s: stars }),
       }, h('span', { class: 'level-num' }, String(i + 1)), locked ? icon('lock', 'level-lock') : Stars(stars, { size: 'stars-xs' }));
       btn.addEventListener('click', () => {
@@ -111,11 +112,34 @@ export function levelsScreen(params, ctx) {
       if (isCurrent || (i === open - 1 && !current)) current = btn;
       grid.append(btn);
     }
+    // 100 顆按鈕只留一個 Tab 停駐點，其餘用方向鍵移動
+    (current || grid.firstElementChild).tabIndex = 0;
     requestAnimationFrame(() => {
       scroll.refresh();
       current?.scrollIntoView({ block: 'center' });
     });
   };
+
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', t('levels.list'));
+  grid.addEventListener('keydown', (ev) => {
+    const btns = [...grid.children];
+    const at = btns.indexOf(document.activeElement);
+    if (at < 0) return;
+    const cols = btns.filter((b) => b.offsetTop === btns[0].offsetTop).length || 1;
+    const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -cols, ArrowDown: cols }[ev.key];
+    let to = at;
+    if (step) to = at + step;
+    else if (ev.key === 'Home') to = 0;
+    else if (ev.key === 'End') to = btns.length - 1;
+    else return;
+    ev.preventDefault();
+    if (to < 0 || to >= btns.length) return;
+    btns[at].tabIndex = -1;
+    btns[to].tabIndex = 0;
+    btns[to].focus();
+    btns[to].scrollIntoView({ block: 'nearest' });
+  });
 
   const tabs = Tabs({
     label: t('levels.diffs'),

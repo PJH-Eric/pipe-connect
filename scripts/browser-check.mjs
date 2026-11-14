@@ -115,6 +115,21 @@ if (!skipFlow) {
   if ((await page.locator('.level:not(.is-locked)').count()) !== 1) note('新玩家應該只有第 1 關可玩');
   await page.locator('.level').nth(3).click({ force: true });
   if (!(await page.locator('.toast.show').count())) note('點鎖住的關卡沒有提示');
+  // 選關的鍵盤操作：100 顆只有一個 Tab 停駐點，方向鍵在格子間移動
+  {
+    const tabbable = await page.locator('.level[tabindex="0"]').count();
+    if (tabbable !== 1) note('選關格子應該只有一個 Tab 停駐點，實際 ' + tabbable);
+    await page.locator('.level[tabindex="0"]').focus();
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('ArrowDown');
+    const at = await page.evaluate(() => {
+      const btns = [...document.querySelectorAll('.level')];
+      const cols = btns.filter((b) => b.offsetTop === btns[0].offsetTop).length;
+      return { focus: btns.indexOf(document.activeElement), expect: 1 + cols, tab: document.querySelectorAll('.level[tabindex="0"]').length };
+    });
+    if (at.focus !== at.expect || at.tab !== 1) note('選關方向鍵移動不對：' + JSON.stringify(at));
+    await page.keyboard.press('Home');
+  }
   if (!/1/.test(await page.locator('.levels-continue').textContent())) note('選關畫面的「繼續」應該指向第 1 關');
   await click(page, '.levels-continue');
   await page.waitForFunction(() => window.__game?.session);
