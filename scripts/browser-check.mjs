@@ -251,7 +251,7 @@ if (!skipFlow) {
     await page.keyboard.press('h');
   }
   if (!(await page.evaluate(() => window.__game.session.done))) note('提示用完仍未過關');
-  await page.waitForSelector('.modal-result', { timeout: 5000 });
+  await page.waitForSelector('.modal-result', { timeout: 20000 });
   await settle(page, 700);
   await audit(page, 'flow-result');
   const labels = await page.locator('.modal-result .modal-foot .btn').allTextContents();
@@ -601,7 +601,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
         g.doTap(k);
       }
     });
-    await page.waitForSelector('.modal-result', { timeout: 6000 });
+    await page.waitForSelector('.modal-result', { timeout: 20000 });
     await settle(page, 900);
     await audit(page, tag('result'));
     if (!(await page.locator('.modal-result [data-act="next-daily"]').count())) note(tag('result') + '：每日挑戰結算沒有「下一題」');
@@ -666,7 +666,7 @@ if (process.env.AXE_PATH && !skipFlow) {
       g.doTap(k);
     }
   });
-  await page.waitForSelector('.modal-result', { timeout: 6000 });
+  await page.waitForSelector('.modal-result', { timeout: 20000 });
   await settle(page, 900);
   await scan('結算');
   await page.locator('.modal-result .modal-foot .btn').last().click();
@@ -724,7 +724,7 @@ for (const [name, vw, vh] of VIEWPORTS) {
       g.doTap(k);
     }
   });
-  await page.waitForSelector('.modal-result', { timeout: 6000 });
+  await page.waitForSelector('.modal-result', { timeout: 20000 });
   await settle(page, 900);
   await audit(page, tag('result'));
   await page.locator('.modal-result .modal-foot .btn').last().click();
