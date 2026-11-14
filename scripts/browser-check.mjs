@@ -87,13 +87,14 @@ async function audit(page, tag) {
   if (wantShots) await page.screenshot({ path: path.join(SHOTS, tag + '.png') });
 }
 
-async function open(vw, vh, lang, seed) {
+async function open(vw, vh, lang, seed, pseudo = false) {
   const context = await browser.newContext({ viewport: { width: vw, height: vh }, deviceScaleFactor: 1, hasTouch: vw < 1300 });
   const page = await context.newPage();
   page.on('pageerror', (e) => note('頁面錯誤：' + e.message));
   page.on('console', (m) => {
     if (m.type() === 'error') note('console 錯誤：' + m.text());
   });
+  if (pseudo) await page.addInitScript(() => (window.__PIPE_PSEUDO__ = true));
   await page.addInitScript(([l, s]) => {
     window.__PIPE_TEST__ = true;
     if (!localStorage.getItem('pipe-connect.v1')) localStorage.setItem('pipe-connect.v1', JSON.stringify({ lang: l, settings: { music: false, sfx: false }, ...(s || {}) }));
@@ -457,6 +458,58 @@ for (const [name, vw, vh] of VIEWPORTS) {
     await context.close();
     console.log(`  ${name} ${lang} 完成`);
   }
+}
+
+/* ---------- 3. 加長文字：每段英文再加長四成，模擬更長的語言，最容易破版的三種尺寸都要撐得住 ---------- */
+console.log('加長文字檢查');
+for (const [name, vw, vh] of VIEWPORTS) {
+  if (!['phone-small', 'phone-landscape', 'tablet-portrait'].includes(name)) continue;
+  if (only && !only.split(',').includes(name)) continue;
+  const { context, page } = await open(vw, vh, 'en', seeded, true);
+  const tag = (x) => `${name}-long-${x}`;
+  await settle(page, 900);
+  await audit(page, tag('home'));
+  await click(page, '.mode-campaign');
+  await settle(page);
+  await audit(page, tag('levels'));
+  await click(page, '.levels-continue');
+  await page.waitForFunction(() => window.__game?.session);
+  await settle(page, 400);
+  await audit(page, tag('countdown'));
+  await page.waitForFunction(() => !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await settle(page, 900);
+  await audit(page, tag('game'));
+  await page.keyboard.press('Escape');
+  await page.waitForSelector('.modal-menu');
+  await audit(page, tag('pause'));
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => {
+    const g = window.__game;
+    for (let i = 0; i < 600 && !g.session.done; i++) {
+      const k = g.session.board.cells.findIndex((c) => !c.locked && c.rot % (c.mask === 15 ? 1 : c.mask === 5 || c.mask === 10 ? 2 : 4) !== 0);
+      if (k < 0) break;
+      g.doTap(k);
+    }
+  });
+  await page.waitForSelector('.modal-result', { timeout: 6000 });
+  await settle(page, 900);
+  await audit(page, tag('result'));
+  await page.locator('.modal-result .modal-foot .btn').last().click();
+  await page.waitForSelector('.home');
+  for (const [sel, key] of [['.mode-daily', 'daily'], ['.mode-random', 'random']]) {
+    await click(page, sel);
+    await settle(page);
+    await audit(page, tag(key));
+    await page.goBack();
+  }
+  await page.locator('.home-more .btn').nth(1).click();
+  await settle(page);
+  await audit(page, tag('stats'));
+  await click(page, '#btn-settings');
+  await settle(page);
+  await audit(page, tag('settings'));
+  await context.close();
+  console.log(`  ${name} 加長文字完成`);
 }
 
 await browser.close();

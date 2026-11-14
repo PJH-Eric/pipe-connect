@@ -20,6 +20,8 @@ export function t(key, params) {
   let s = LOCALES[lang][key];
   if (s == null) s = LOCALES['zh-Hant'][key];
   if (s == null) return key;
+  // 巡檢用：把每段文字加長四成，模擬比較長的語言，檢查版面撐不撐得住
+  if (window.__PIPE_PSEUDO__ && !key.startsWith('doc.')) s = s + '·' + s.slice(0, Math.ceil(s.length * 0.4));
   return params ? s.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? params[k] : m)) : s;
 }
 

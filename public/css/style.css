@@ -325,6 +325,7 @@ button, a, [role="switch"] { touch-action: manipulation; }
 .modal { width: min(100%, 460px); max-height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; border-radius: 22px; border: 3px solid var(--line); background: var(--panel); box-shadow: 0 10px 0 rgba(0, 0, 0, .35), 0 24px 60px rgba(0, 0, 0, .5); animation: rise .2s both; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 14px 8px 20px; }
 .modal-title { font-size: 22px; font-weight: 900; }
+.modal .modal-x { width: 44px; height: 44px; }
 .modal-body { padding: 6px 20px 14px; }
 .modal-foot { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px 20px 18px; }
 .modal-foot .btn { flex: 1 1 140px; }
@@ -418,8 +419,11 @@ button, a, [role="switch"] { touch-action: manipulation; }
 }
 @media (max-width: 380px) {
   .chip > .ico { display: none; }
-  .bar .btn > .ico { display: none; }
+  /* 很窄的手機：操作鈕改成圖示在上、文字在下，文字可以用到整顆按鈕的寬度 */
   .bar { gap: 6px; }
+  .bar .btn { flex-direction: column; gap: 2px; padding: 6px 4px; min-height: 58px; font-size: 13px; }
+  .bar .btn > .ico { font-size: 17px; }
+  .bar .btn-badge { position: absolute; top: 4px; right: 4px; min-width: 20px; height: 20px; font-size: 12px; padding: 0 4px; }
   .mode-card { flex-wrap: wrap; }
   .mode-card .card-main { flex: 1 1 0; }
   .mode-card .card-status { flex: 1 0 100%; align-items: flex-start; padding-left: 58px; margin-top: -6px; }
