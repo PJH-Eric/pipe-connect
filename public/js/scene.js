@@ -426,20 +426,23 @@ export class PipeScene {
       // 水龍頭：每個出水口一圈黃銅接頭＋往外流動的白色箭頭，頂上一個手輪，底下一塊同色的墊子。
       // 這些都跟著水龍頭一起轉，一眼看得出水從哪幾個方向流出去。
       const flows = [];
+      let wheelGroup = null;
       if (cell.src) {
         const pad = new THREE.Mesh(this.base.pad, markMats[cell.src]);
         pad.position.y = 0.071;
         group.add(pad);
+        // 手輪（輪圈＋十字輻條）放在同一組，過關時整組轉一圈
+        wheelGroup = new THREE.Group();
+        wheelGroup.position.y = 0.74;
         const wheel = new THREE.Mesh(this.base.wheel, brass);
         wheel.rotation.x = HALF_PI;
-        wheel.position.y = 0.74;
-        group.add(wheel);
+        wheelGroup.add(wheel);
         for (const rot of [0, HALF_PI]) {
           const spoke = new THREE.Mesh(this.base.spoke, brass);
           spoke.rotation.set(0, rot, HALF_PI);
-          spoke.position.y = 0.74;
-          group.add(spoke);
+          wheelGroup.add(spoke);
         }
+        group.add(wheelGroup);
         for (const d of DIRS) {
           if (!(cell.mask & d.bit)) continue;
           const axis = d.dx !== 0 ? [0, 0, HALF_PI] : [HALF_PI, 0, 0];
@@ -465,9 +468,9 @@ export class PipeScene {
       const turns = cell.rot;
       group.rotation.y = -turns * HALF_PI;
       return {
-        group, material, flows, turns, angle: -turns * HALF_PI, from: -turns * HALF_PI, turnT0: -1,
+        group, material, flows, wheel: wheelGroup, turns, angle: -turns * HALF_PI, from: -turns * HALF_PI, turnT0: -1,
         cur: new THREE.Color(WATER_COLORS[0]), start: new THREE.Color(WATER_COLORS[0]), target: new THREE.Color(WATER_COLORS[0]),
-        colorT0: -1, colorCode: 0, bounceT0: -1, shakeT0: -1,
+        colorT0: -1, colorCode: 0, bounceT0: -1, shakeT0: -1, glowT0: -1, spinT0: -1,
       };
     });
     this.hasFlows = this.cells.some((c) => c.flows.length > 0);
@@ -593,7 +596,12 @@ export class PipeScene {
   celebrate(dist) {
     if (this.reduced) return;
     const now = performance.now();
-    this.cells.forEach((c, i) => (c.bounceT0 = now + Math.max(0, dist[i]) * 38));
+    // 每一節依離水龍頭的距離依序彈起、亮一下，像水一路沖過去；水龍頭的手輪轉一圈
+    this.cells.forEach((c, i) => {
+      c.bounceT0 = now + Math.max(0, dist[i]) * 38;
+      c.glowT0 = c.bounceT0;
+      if (c.wheel) c.spinT0 = now;
+    });
     this.dirty = true;
   }
 
@@ -958,6 +966,25 @@ export class PipeScene {
           const s = Math.sin(t * Math.PI);
           c.group.position.y = s * 0.28;
           c.group.scale.setScalar(1 + s * 0.12);
+        }
+        busy = true;
+        moving = true;
+      }
+      if (c.glowT0 >= 0) {
+        const t = (now - c.glowT0) / 520;
+        if (t >= 1) {
+          c.glowT0 = -1;
+          this._applyColor(c);
+        } else if (t >= 0) c.material.emissiveIntensity = 0.34 + 0.75 * Math.sin(t * Math.PI);
+        busy = true;
+      }
+      if (c.spinT0 >= 0 && c.wheel) {
+        const t = Math.min(1, (now - c.spinT0) / 900);
+        const e = 1 - (1 - t) ** 3;
+        c.wheel.rotation.y = e * Math.PI * 2;
+        if (t >= 1) {
+          c.spinT0 = -1;
+          c.wheel.rotation.y = 0;
         }
         busy = true;
         moving = true;
