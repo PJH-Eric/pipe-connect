@@ -200,6 +200,16 @@ if (!skipFlow) {
     const idle = await sample();
     if (idle.renders > 1) note('減少動態時畫面仍在重畫：' + JSON.stringify(idle));
     await page.evaluate(() => window.__game.scene.setReducedMotion(false));
+    // 低畫質：沒有環境反光，沒水的水管不能還是高金屬感（會變成一片黑）
+    const lowMat = await page.evaluate(() => {
+      const g = window.__game, sc = g.scene;
+      sc.setQuality('low');
+      const dry = sc.cells.filter((c, i) => g.session.flow.color[i] === 0);
+      const bad = dry.filter((c) => c.material.metalness > 0.2).length;
+      sc.setQuality('high');
+      return { dry: dry.length, bad, back: dry.every((c) => c.material.metalness > 0.5) };
+    });
+    if (lowMat.bad || !lowMat.back) note('切換畫質時沒水的水管材質不對：' + JSON.stringify(lowMat));
     // 水龍頭：每個出水口都要有往外流的箭頭（兩個一組），數量跟開口一致
     const taps = await page.evaluate(() => {
       const g = window.__game;

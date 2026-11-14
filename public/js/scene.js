@@ -173,7 +173,8 @@ export class PipeScene {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(26, 1, 0.1, 200);
-    this.scene.add(new THREE.HemisphereLight(0xffffff, 0x41566e, 0.75));
+    this.hemi = new THREE.HemisphereLight(0xffffff, 0x41566e, 0.75);
+    this.scene.add(this.hemi);
     const sun = new THREE.DirectionalLight(0xfff4e2, 2.3);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -187,6 +188,7 @@ export class PipeScene {
     // 低畫質不需要環境反光，連貼圖都不用做（慢的裝置開局快很多）
     if (this.quality === 'high') this._makeEnvironment();
     else {
+      this.hemi.intensity = 1.55;
       this.renderer.shadowMap.enabled = false;
       sun.castShadow = false;
       this.renderer.setPixelRatio(1);
@@ -462,6 +464,8 @@ export class PipeScene {
       };
     });
     this.hasFlows = this.cells.some((c) => c.flows.length > 0);
+    // 開局先把每一節的材質套用一次（沒水的水管也要依目前畫質設定金屬感與顏色）
+    this.cells.forEach((c) => this._applyColor(c));
     this._fitShadow();
     this._paintTiles();
     this.view.zoom = 1;
@@ -556,6 +560,8 @@ export class PipeScene {
     // 有水的水管像上了亮漆：反光少一點、顏色才飽滿；沒水的是亮面金屬
     c.material.emissiveIntensity = wet ? 0.34 : 0;
     c.material.metalness = wet ? 0.1 : this.quality === 'low' ? 0.05 : 0.72;
+    // 低畫質沒有環境反光，沒水的金屬管會變得很暗：換成跟地磚分得開的中灰色
+    if (!wet && this.quality === 'low') c.material.color.setHex(0x7d8c9a);
     c.material.roughness = wet ? 0.22 : 0.24;
     c.material.envMapIntensity = wet ? 0.32 : 1.15;
   }
@@ -614,6 +620,8 @@ export class PipeScene {
     this.renderer.setPixelRatio(low ? 1 : Math.min(window.devicePixelRatio || 1, 2));
     if (!low && !this.envTarget) this._makeEnvironment();
     this.scene.environment = low ? null : this.envTarget.texture;
+    // 沒有環境反光時天空光多補一點，整體亮度才和高畫質接近
+    this.hemi.intensity = low ? 1.55 : 0.75;
     this.handlers.onQuality?.(q);
     this.perf.done = true;
     this.cells.forEach((c) => this._applyColor(c));
