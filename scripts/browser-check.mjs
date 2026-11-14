@@ -363,6 +363,88 @@ if (!skipFlow) {
   await context.close();
 }
 
+/* ---------- 1d. 真的用觸控事件：點一下旋轉、兩指縮放與平移、放大後單指平移，手勢結束不會誤轉水管 ---------- */
+if (!skipFlow) {
+  console.log('觸控檢查');
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, deviceScaleFactor: 2 });
+  const page = await context.newPage();
+  page.on('pageerror', (e) => note('觸控：頁面錯誤 ' + e.message));
+  await page.addInitScript(() => {
+    window.__PIPE_TEST__ = true;
+    localStorage.setItem('pipe-connect.v1', JSON.stringify({ settings: { music: false, sfx: false, vibrate: false } }));
+  });
+  await page.goto(URL_);
+  await page.waitForSelector('#app[data-ready]');
+  await page.locator('.mode-random').tap();
+  await page.locator('.diff-card').nth(2).tap();
+  await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+  await settle(page, 600);
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], id) => ({ x, y, id })) });
+  const state = () => page.evaluate(() => ({ moves: window.__game.session.moves, zoom: window.__game.scene.view.zoom, panX: window.__game.scene.view.panX, panZ: window.__game.scene.view.panZ, az: window.__game.scene.view.az }));
+  // 找一節可以轉的水管，算出它在螢幕上的位置
+  const target = await page.evaluate(() => {
+    const g = window.__game, sc = g.scene;
+    const i = g.session.board.cells.findIndex((c) => !c.locked && c.mask !== 15);
+    const rect = sc.renderer.domElement.getBoundingClientRect();
+    const p = sc._cellPos(i);
+    const v = sc.camera.position.clone().set(p.x, 0.3, p.z).project(sc.camera);
+    return { i, x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height };
+  });
+  await page.touchscreen.tap(target.x, target.y);
+  let st = await state();
+  if (st.moves !== 1) note('觸控點一下沒有剛好轉一次：' + JSON.stringify(st));
+  const rot1 = await page.evaluate((i) => window.__game.session.board.cells[i].rot, target.i);
+  // 兩指張開放大
+  const box = await page.locator('.stage').boundingBox();
+  const cx = box.x + box.width / 2, cy = box.y + box.height / 2;
+  await touch('touchStart', [[cx - 30, cy], [cx + 30, cy]]);
+  for (let d = 40; d <= 110; d += 14) await touch('touchMove', [[cx - d, cy], [cx + d, cy]]);
+  await touch('touchEnd', []);
+  await settle(page, 150);
+  st = await state();
+  if (!(st.zoom > 1.5)) note('兩指張開沒有放大：' + JSON.stringify(st));
+  if (st.moves !== 1) note('兩指縮放結束時誤轉了水管：' + JSON.stringify(st));
+  // 兩指一起往右移＝平移
+  const pan0 = st.panX;
+  await touch('touchStart', [[cx - 50, cy], [cx + 50, cy]]);
+  for (let dx = 10; dx <= 60; dx += 10) await touch('touchMove', [[cx - 50 + dx, cy], [cx + 50 + dx, cy]]);
+  await touch('touchEnd', []);
+  await settle(page, 150);
+  st = await state();
+  if (st.panX === pan0) note('兩指平移沒有作用：' + JSON.stringify(st));
+  if (st.moves !== 1) note('兩指平移結束時誤轉了水管');
+  // 放大後單指拖曳＝平移（不是轉視角）
+  const pan1 = st.panX;
+  await touch('touchStart', [[cx, cy]]);
+  for (let dx = 8; dx <= 56; dx += 8) await touch('touchMove', [[cx - dx, cy]]);
+  await touch('touchEnd', []);
+  await settle(page, 150);
+  st = await state();
+  if (st.panX === pan1 || st.az !== 0) note('放大後單指拖曳應該平移：' + JSON.stringify(st));
+  if (st.moves !== 1) note('單指拖曳結束時誤轉了水管');
+  // 放大、平移之後再點同一節水管，還是要點得到它
+  const again = await page.evaluate((i) => {
+    const sc = window.__game.scene;
+    const rect = sc.renderer.domElement.getBoundingClientRect();
+    const p = sc._cellPos(i);
+    const v = sc.camera.position.clone().set(p.x, 0.3, p.z).project(sc.camera);
+    return { x: rect.left + ((v.x + 1) / 2) * rect.width, y: rect.top + ((1 - v.y) / 2) * rect.height, w: innerWidth, top: rect.top, bottom: rect.bottom };
+  }, target.i);
+  if (again.x > 4 && again.x < again.w - 4 && again.y > again.top + 4 && again.y < again.bottom - 4) {
+    await page.touchscreen.tap(again.x, again.y);
+    const rot2 = await page.evaluate((i) => window.__game.session.board.cells[i].rot, target.i);
+    if (rot2 !== ((rot1 + 1) & 3)) note('放大平移後點水管沒有轉到同一節');
+  }
+  // 視角復位鈕、操作鈕用觸控也要有反應
+  await page.locator('.zoom .icon-btn').nth(2).tap();
+  st = await state();
+  if (st.zoom !== 1 || st.panX !== 0) note('觸控按視角復位沒有還原');
+  await page.locator('.bar .btn').nth(0).tap();
+  if ((await page.evaluate(() => window.__game.session.undoStack.length)) >= (await page.evaluate(() => window.__game.session.moves))) note('觸控按復原沒有作用');
+  await context.close();
+}
+
 /* ---------- 1c. WebGL 被系統收走再還回來；以及完全沒有 WebGL 的裝置 ---------- */
 if (!skipFlow) {
   console.log('WebGL 檢查');
