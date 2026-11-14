@@ -200,13 +200,15 @@ if (!skipFlow) {
     const idle = await sample();
     if (idle.renders > 1) note('減少動態時畫面仍在重畫：' + JSON.stringify(idle));
     await page.evaluate(() => window.__game.scene.setReducedMotion(false));
-    // 出水口：通水的才噴水，沒水的不噴
-    const jets = await page.evaluate(() => {
+    // 水龍頭：每個出水口都要有往外流的箭頭（兩個一組），數量跟開口一致
+    const taps = await page.evaluate(() => {
       const g = window.__game;
-      const ends = g.scene.cells.map((c, i) => ({ c, i })).filter((x) => x.c.jet);
-      return { ends: ends.length, wrong: ends.filter((x) => x.c.jet.visible !== (g.session.flow.color[x.i] !== 0)).length };
+      return g.session.board.cells.map((c, i) => ({ c, i })).filter((x) => x.c.src).map((x) => {
+        const open = [1, 2, 4, 8].filter((b) => x.c.mask & b).length;
+        return { open, arrows: g.scene.cells[x.i].flows.length };
+      });
     });
-    if (!jets.ends || jets.wrong) note('出水口的水柱和通水狀態不一致：' + JSON.stringify(jets));
+    if (!taps.length || taps.some((x) => x.arrows !== x.open * 2)) note('水龍頭出水口的箭頭數量不對：' + JSON.stringify(taps));
   }
   // 視角：沒放大時拖曳是轉視角；放大後拖曳改成平移；視角復位會全部還原
   {

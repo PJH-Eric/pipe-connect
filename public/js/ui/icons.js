@@ -56,12 +56,24 @@ export function pipeSvg(mask, { color = null, locked = false, src = false, size 
     const fx = 50 + (x - 50) * 0.86, fy = 50 + (y - 50) * 0.86;
     flanges += x === 50 ? `<rect x="33" y="${fy - 5}" width="34" height="10" rx="3"/>` : `<rect x="${fx - 5}" y="33" width="10" height="34" rx="3"/>`;
   }
+  let spouts = '';
+  if (src) {
+    for (const bit of [N, E, S, W]) {
+      if (!(mask & bit)) continue;
+      const [x, y] = END[bit];
+      const ux = (x - 50) / 50, uy = (y - 50) / 50;
+      const cx = 50 + ux * 40, cy = 50 + uy * 40;
+      spouts += ux === 0 ? `<rect x="31" y="${cy - 7}" width="38" height="14" rx="4" fill="#f2b53a" stroke="#8a5a00" stroke-width="2.500"/>` : `<rect x="${cx - 7}" y="31" width="14" height="38" rx="4" fill="#f2b53a" stroke="#8a5a00" stroke-width="2.500"/>`;
+      const tx = 50 + ux * 47, ty = 50 + uy * 47, bx = 50 + ux * 36, by = 50 + uy * 36;
+      spouts += `<path d="M${tx} ${ty}L${bx - uy * 7} ${by + ux * 7}L${bx + uy * 7} ${by - ux * 7}Z" fill="#fff"/>`;
+    }
+  }
   const count = [N, E, S, W].filter((b) => mask & b).length;
   const hub = src
-    ? `<circle cx="50" cy="50" r="27" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="50" cy="50" r="12" fill="#fff" opacity=".85"/>`
+    ? // 水龍頭：圓形水塔＋黃銅手輪；出水口有黃銅接頭和往外的白色箭頭
+      `${spouts}<circle cx="50" cy="50" r="27" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="50" cy="50" r="15" fill="none" stroke="#f2b53a" stroke-width="5"/><path d="M50 35V65M35 50H65" stroke="#f2b53a" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="50" r="5" fill="#fff"/>`
     : count === 1
-      ? // 出水口：黃銅噴嘴，中間是出水孔（有水時是水的顏色）
-        `<circle cx="50" cy="50" r="24" fill="#f2b53a" stroke="#8a5a00" stroke-width="4"/><circle cx="50" cy="50" r="13" fill="${color || '#14202c'}" stroke="#8a5a00" stroke-width="2"/>${color ? '<circle cx="45" cy="45" r="4" fill="#fff" opacity=".8"/>' : ''}`
+      ? `<circle cx="50" cy="50" r="19" fill="${pipe}" stroke="${edge}" stroke-width="4"/><circle cx="44" cy="44" r="5" fill="#fff" opacity=".55"/>`
       : '';
   const rivets = locked ? [[14, 14], [86, 14], [14, 86], [86, 86]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#4a423b"/>`).join('') : '';
   return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true">
