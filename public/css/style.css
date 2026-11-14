@@ -325,6 +325,18 @@ button, a, [role="switch"] { touch-action: manipulation; }
   .hud-tags .tag { font-size: 12px; padding: 1px 7px; }
 }
 
+/* 矮的橫向螢幕（手機橫拿、摺疊機、超寬矮視窗）：左側欄高度不夠，
+   三顆操作鈕改成一排、圖示在上文字在下，把高度讓給上面的資訊卡 */
+@media (orientation: landscape) and (min-width: 560px) and (max-height: 560px) {
+  .game-side { justify-content: space-between; }
+  .hud { flex: 0 1 auto; }
+  .bar { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .bar .btn { flex-direction: column; gap: 1px; min-height: 52px; padding: 4px 2px; font-size: 13px; }
+  .bar .btn > .ico { font-size: 17px; }
+  .bar .btn-badge { position: absolute; top: 3px; right: 3px; min-width: 18px; height: 18px; font-size: 11px; padding: 0 4px; }
+  .hud-head { row-gap: 4px; }
+}
+
 /* ---------- 疊層 ---------- */
 #overlays { position: fixed; inset: 0; pointer-events: none; z-index: 50; }
 #overlays > * { pointer-events: auto; }

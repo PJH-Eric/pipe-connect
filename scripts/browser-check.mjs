@@ -83,6 +83,23 @@ async function audit(page, tag) {
     for (const el of scope.querySelectorAll('.sa-view')) {
       if (el.scrollWidth > el.clientWidth + 1) out.push('捲動區水平溢出');
     }
+    // 元件互相重疊：按鈕、資訊卡、標籤、卡片之間不能壓到彼此（巢狀的不算）
+    const blocks = [...scope.querySelectorAll('.btn, .icon-btn, .chip, .tag, .card, .level, .tab, .stat, .ach, .pill-btn, .hud-stars, .menu-item, .res-stat, .cd-num, .cd-tip')].filter(visible);
+    const rects = blocks.map((e) => e.getBoundingClientRect());
+    let overlaps = 0;
+    for (let i = 0; i < blocks.length && overlaps < 3; i++) {
+      for (let j = i + 1; j < blocks.length && overlaps < 3; j++) {
+        if (blocks[i].contains(blocks[j]) || blocks[j].contains(blocks[i])) continue;
+        const a = rects[i], b = rects[j];
+        const w = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        const h = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (w > 2 && h > 2) {
+          const name = (e) => (e.getAttribute('aria-label') || e.textContent || e.className).trim().replace(/\s+/g, ' ').slice(0, 14);
+          out.push(`「${name(blocks[i])}」和「${name(blocks[j])}」重疊`);
+          overlaps++;
+        }
+      }
+    }
     return out;
   });
   issues.forEach((i) => note(`${tag}：${i}`));
