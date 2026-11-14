@@ -346,6 +346,54 @@ if (!skipFlow) {
   await context.close();
 }
 
+/* ---------- 1c. WebGL 被系統收走再還回來；以及完全沒有 WebGL 的裝置 ---------- */
+if (!skipFlow) {
+  console.log('WebGL 檢查');
+  {
+    const { context, page } = await open(820, 1180, 'zh-Hant');
+    await click(page, '.mode-random');
+    await page.locator('.diff-card').nth(2).click();
+    await page.waitForFunction(() => window.__game?.session && !window.__game.counting && window.__game.session.started, null, { timeout: 8000 });
+    const lost = await page.evaluate(async () => {
+      const g = window.__game;
+      const k = g.session.board.cells.findIndex((c) => !c.locked && c.mask !== 15);
+      g.doTap(k);
+      const ext = g.scene.renderer.getContext().getExtension('WEBGL_lose_context');
+      if (!ext) return { skipped: true };
+      ext.loseContext();
+      await new Promise((r) => setTimeout(r, 300));
+      const wasLost = g.scene.lost === true;
+      ext.restoreContext();
+      await new Promise((r) => setTimeout(r, 600));
+      g.doTap(k);
+      const pick = g.scene.probePick();
+      return { wasLost, back: g.scene.lost === false, moves: g.session.moves, cells: g.scene.cells.length, pickBad: pick.tile + pick.pipeTop + pick.armEnd };
+    });
+    if (!lost.skipped && (!lost.wasLost || !lost.back || lost.moves !== 2 || !lost.cells || lost.pickBad)) note('WebGL 還回來後畫面沒有復原：' + JSON.stringify(lost));
+    await context.close();
+  }
+  {
+    const noGl = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined, args: ['--disable-gpu', '--disable-3d-apis'] });
+    const context = await noGl.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    page.on('pageerror', (e) => note('沒有 WebGL 時頁面錯誤：' + e.message));
+    await page.addInitScript(() => localStorage.setItem('pipe-connect.v1', JSON.stringify({ settings: { music: false, sfx: false } })));
+    await page.goto(URL_);
+    await page.waitForSelector('#app[data-ready]');
+    await click(page, '.mode-campaign');
+    await click(page, '.levels-continue');
+    await page.waitForSelector('.stage-error', { timeout: 5000 }).catch(() => note('沒有 WebGL 時沒有顯示說明'));
+    await audit(page, 'flow-no-webgl');
+    await page.keyboard.press('Escape');
+    await click(page, '#btn-settings');
+    await page.waitForSelector('.modal-settings').catch(() => note('沒有 WebGL 的畫面上設定打不開'));
+    await page.keyboard.press('Escape');
+    await page.locator('.stage-error .btn').click();
+    await page.waitForSelector('.levels-continue', { timeout: 4000 }).catch(() => note('沒有 WebGL 的說明畫面回不去選關'));
+    await noGl.close();
+  }
+}
+
 /* ---------- 2. 各尺寸 × 語言的版面檢查 ---------- */
 console.log('版面檢查');
 const seeded = { progress: { camp: { tot: { stars: [3, 3, 2, 1, 3] }, easy: { stars: [3, 2] } }, daily: {}, stats: { clears: 7, taps: 120, seconds: 432, hints: 3, perfect: 2, maxStreak: 2 }, ach: { first: 1 } } };

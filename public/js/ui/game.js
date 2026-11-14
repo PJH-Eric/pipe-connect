@@ -324,7 +324,7 @@ export function gameScreen(params, ctx) {
   }
 
   function onKey(ev) {
-    if (hasModal() || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (!session || hasModal() || ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (cd.active && ev.key !== 'Escape') return;
     const tag = ev.target?.closest?.('button,a,[role="slider"],[role="switch"]');
     const b = session.board;
@@ -384,6 +384,7 @@ export function gameScreen(params, ctx) {
   }
 
   function onVisibility() {
+    if (!session) return;
     if (document.hidden) persist();
     if (document.hidden && (session.started || cd.active) && !session.done && !hasModal()) openPause();
   }
@@ -460,6 +461,21 @@ export function gameScreen(params, ctx) {
     });
   }
 
+  function makeScene() {
+    return new PipeScene(stageHost, {
+      onTap: doTap,
+      onHover: (i) => {
+        if (!hasModal() && session && !session.done) setCursor(i);
+      },
+      // WebGL 被系統收走又拿回來：照目前的對局狀態整個重畫
+      onRestored: () => {
+        if (left || !session) return;
+        scene.setBoard(session.board);
+        scene.applyFlow(session.flow, { instant: true });
+      },
+    });
+  }
+
   /* ---------- 啟動 ---------- */
   const tick = setInterval(() => {
     if (session && !session.done) {
@@ -473,22 +489,30 @@ export function gameScreen(params, ctx) {
   return {
     el,
     title,
-    pause: openPause,
+    pause: () => session && openPause(),
     mounted() {
-      scene = new PipeScene(stageHost, {
-        onTap: doTap,
-        onHover: (i) => {
-          if (!hasModal() && session && !session.done) setCursor(i);
-        },
-      });
+      try {
+        scene = makeScene();
+      } catch (err) {
+        // 這台裝置或瀏覽器開不了 WebGL：給一個看得懂的說明和回去的路，不要留一片空白
+        console.warn('無法建立 3D 畫面', err);
+        scene = null;
+        el.replaceChildren(h('div', { class: 'stage-error', role: 'alert' },
+          icon('view'),
+          h('h2', null, t('game.noWebgl')),
+          h('p', null, t('game.noWebgl.body')),
+          Button({ ico: 'back', label: t('top.back'), variant: 'primary', size: 'lg', onClick: () => ctx.back() }),
+        ));
+        return;
+      }
       scene.setReducedMotion(store().settings.reduceMotion);
       begin();
       scene.start();
       if (window.__PIPE_TEST__) window.__game = { get session() { return session; }, get counting() { return cd.active; }, scene, doTap, doHint, doUndo };
     },
-    onLang: refreshTexts,
+    onLang: () => session && refreshTexts(),
     onSettings() {
-      scene.setReducedMotion(store().settings.reduceMotion);
+      scene?.setReducedMotion(store().settings.reduceMotion);
     },
     leave() {
       left = true;

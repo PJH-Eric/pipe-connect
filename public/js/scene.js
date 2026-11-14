@@ -138,6 +138,22 @@ export class PipeScene {
     };
     this.ray = new THREE.Raycaster();
 
+    // 顯示卡驅動重啟、分頁在背景太久時 WebGL 會被系統收走：先擋住預設行為，拿回來後請外面重畫
+    const onLost = (ev) => {
+      ev.preventDefault();
+      this.lost = true;
+    };
+    const onRestored = () => {
+      this.lost = false;
+      this.handlers.onRestored?.();
+    };
+    canvas.addEventListener('webglcontextlost', onLost);
+    canvas.addEventListener('webglcontextrestored', onRestored);
+    (this._unbind ||= []).push(() => {
+      canvas.removeEventListener('webglcontextlost', onLost);
+      canvas.removeEventListener('webglcontextrestored', onRestored);
+    });
+
     this._bind();
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(container);
@@ -652,6 +668,7 @@ export class PipeScene {
   }
 
   _frame(now) {
+    if (this.lost) return;
     let busy = false;
     for (const c of this.cells) {
       if (c.turnT0 >= 0) {
