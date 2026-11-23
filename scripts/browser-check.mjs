@@ -142,7 +142,7 @@ if (!skipFlow) {
   if ((await page.locator('.level:not(.is-locked)').count()) !== 1) note('新玩家應該只有第 1 關可玩');
   await page.locator('.level').nth(3).click({ force: true });
   if (!(await page.locator('.toast.show').count())) note('點鎖住的關卡沒有提示');
-  // 選關的鍵盤操作：100 顆只有一個 Tab 停駐點，方向鍵在格子間移動
+  // 選關的鍵盤操作：200 顆只有一個 Tab 停駐點，方向鍵在格子間移動
   {
     const tabbable = await page.locator('.level[tabindex="0"]').count();
     if (tabbable !== 1) note('選關格子應該只有一個 Tab 停駐點，實際 ' + tabbable);
