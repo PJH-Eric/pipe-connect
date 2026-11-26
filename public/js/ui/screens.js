@@ -87,7 +87,7 @@ export function levelsScreen(params, ctx) {
       h('span', { class: 'levels-desc' }, t('diff.' + diff + '.desc')),
       h('span', { class: 'card-tags' }, diffFeatures(diff)),
       h('span', { class: 'levels-count' }, t('levels.cleared', { n: clearedCount(p, diff), total: LEVELS_PER_DIFF })),
-      // 還沒全破就給一顆「繼續」，不用在 200 格裡找目前的關卡
+      // 還沒全破就給一顆「繼續」，不用在 300 格裡找目前的關卡
       clearedCount(p, diff) < LEVELS_PER_DIFF && Button({ ico: 'play', label: t('levels.continue', { n: open }), variant: 'primary', attrs: { class: 'btn btn-primary levels-continue' }, onClick: () => ctx.go('game', { mode: 'campaign', diff, index: open - 1 }) }),
     ].filter(Boolean));
     grid.replaceChildren();

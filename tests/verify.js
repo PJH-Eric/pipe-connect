@@ -149,7 +149,7 @@ await test('產生器：同種子完全相同', () => {
   assert.notDeepEqual(generate(spec, 's1'), generate(spec, 's2'));
 });
 
-await test('闖關 1000 關：全部有解、開局未過關、水源數正確、照點標準步數必過關', () => {
+await test('闖關 1500 關：全部有解、開局未過關、水源數正確、照點標準步數必過關', () => {
   for (const diff of DIFFS) {
     for (let i = 0; i < LEVELS_PER_DIFF; i++) {
       const b = campaignBoard(diff, i);

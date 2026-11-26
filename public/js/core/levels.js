@@ -2,7 +2,7 @@
 import { generate } from './generator.js';
 
 export const DIFFS = ['tot', 'easy', 'normal', 'hard', 'myth'];
-export const LEVELS_PER_DIFF = 200;
+export const LEVELS_PER_DIFF = 300;
 /** 每日挑戰用的關卡位置（各難度的中後段） */
 const DAILY_STAGE = 70;
 
@@ -14,23 +14,23 @@ export function levelSpec(diff, idx) {
   const i = Math.max(0, Math.min(LEVELS_PER_DIFF - 1, idx | 0));
   switch (diff) {
     case 'tot': {
-      const s = i < 20 ? 3 : i < 70 ? 4 : i < 130 ? 5 : 6;
+      const s = i < 20 ? 3 : i < 70 ? 4 : i < 130 ? 5 : i < 250 ? 6 : 7;
       return { w: s, h: s, colors: 1, wrap: false, lockRatio: 0.3 };
     }
     case 'easy': {
-      const s = i < 40 ? 5 : i < 80 ? 6 : i < 140 ? 7 : 8;
+      const s = i < 40 ? 5 : i < 80 ? 6 : i < 140 ? 7 : i < 250 ? 8 : 9;
       return { w: s, h: s, colors: 1, wrap: false, lockRatio: 0.15 };
     }
     case 'normal': {
-      const s = i < 35 ? 7 : i < 70 ? 8 : i < 100 ? 9 : i < 150 ? 10 : 11;
-      return { w: s, h: s, colors: i < 50 ? 1 : i < 130 ? 2 : 3, wrap: false, lockRatio: 0.1 };
+      const s = i < 35 ? 7 : i < 70 ? 8 : i < 100 ? 9 : i < 150 ? 10 : i < 250 ? 11 : 12;
+      return { w: s, h: s, colors: i < 50 ? 1 : i < 130 ? 2 : i < 250 ? 3 : 4, wrap: false, lockRatio: 0.1 };
     }
     case 'hard': {
-      const s = i < 50 ? 9 : i < 100 ? 10 : i < 150 ? 11 : 12;
+      const s = i < 50 ? 9 : i < 100 ? 10 : i < 150 ? 11 : i < 250 ? 12 : 13;
       return { w: s, h: s, colors: i < 40 ? 2 : i < 100 ? 3 : 4, wrap: i >= 60, lockRatio: 0.08 };
     }
     case 'myth': {
-      const s = i < 50 ? 11 : i < 100 ? 12 : i < 150 ? 13 : 14;
+      const s = i < 50 ? 11 : i < 100 ? 12 : i < 150 ? 13 : i < 250 ? 14 : 15;
       return { w: s, h: s, colors: i < 50 ? 3 : 4, wrap: true, lockRatio: 0.05 };
     }
     default:
